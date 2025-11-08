@@ -1,0 +1,77 @@
+jenkins:
+  numExecutors: 0
+  mode: EXCLUSIVE
+  systemMessage: "Jenkins configured automatically by Jenkins Configuration as Code plugin\n\n"
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+       - id: ${JENKINS_ADMIN_ID}
+         password: ${JENKINS_ADMIN_PASSWORD}
+  # new auth format:
+  # https://github.com/jenkinsci/matrix-auth-plugin/releases/tag/matrix-auth-3.2
+  authorizationStrategy:
+    projectMatrix:
+      entries:
+        - user:
+            name: "${JENKINS_ADMIN_ID}"
+            permissions:
+              - "Overall/Administer"
+        - group:
+            name: "authenticated"
+            permissions:
+              - "Overall/Read"
+  nodes:
+    - permanent:
+        labelString: "docker myagent"
+        mode: NORMAL
+        name: "my-node-1"
+        numExecutors: 1
+        remoteFS: "/home/jenkins"
+        launcher:
+          ssh:
+            host: agent
+            credentialsId: cred-id-ssh-agent-key
+            launchTimeoutSeconds: 10
+            maxNumRetries: 3
+            retryWaitTime: 30
+            sshHostKeyVerificationStrategy:
+              nonVerifyingKeyVerificationStrategy: {}
+              # manuallyTrustedKeyVerificationStrategy:
+              #   requireInitialManualTrust: false
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - basicSSHUserPrivateKey:
+              id: cred-id-ssh-agent-key
+              scope: GLOBAL
+              username: jenkins
+              privateKeySource:
+                directEntry:
+                  privateKey: "${readFile:${JENKINS_AGENT_SSH_PRIVKEY_FILE}}"
+          - usernamePassword:
+              id: cred-id-git-userpass
+              scope: GLOBAL
+              username: "${JENKINS_GITLAB_GIT_USER}"
+              password: "${JENKINS_GITLAB_GIT_PAT}"
+          - gitlabPersonalAccessToken:
+              id: "cred-id-gitlab-api-token"
+              scope: GLOBAL
+              token: "${JENKINS_GITLAB_API_PAT}"
+security:
+  queueItemAuthenticator:
+    authenticators:
+    - global:
+        strategy: triggeringUsersAuthorizationStrategy
+unclassified:
+  location:
+    url: "${JENKINS_CONTROLLER_URL}"
+  gitLabServers:
+    servers:
+    - name: Server1
+      immediateHookTrigger: true
+      manageWebHooks: true
+      credentialsId: cred-id-gitlab-api-token
+      serverUrl: "${JENKINS_GITLAB_URL}"
+      # webhookSecretCredentialsId: 

@@ -1,0 +1,136 @@
+---
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in jenkins__os_supperted | list
+    fail_msg: Your OS is not supported
+
+
+- name: Dirs list to create
+  ansible.builtin.set_fact:
+    jenkins__create_dirs:
+      - /
+      - ssh-agent-keys
+
+
+- name: Create dirs
+  ansible.builtin.file:
+    path: "{{ (jenkins__workdir, item) | path_join }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ jenkins__create_dirs }}"
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ jenkins__name_systemd_service }}.service"
+  failed_when: false
+
+
+- name: Generate ssh-agent keypair
+  community.crypto.openssh_keypair:
+    path: "{{ (jenkins__workdir, 'ssh-agent-keys', 'key') | path_join }}"
+    mode: "0644"
+    type: ed25519
+    state: present
+    comment: jenkins
+  failed_when: false
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.src }}"
+  loop:
+    - src: docker-compose.yaml
+      dst: "{{ jenkins__workdir }}/"
+    - src: dockerfile-jenkins
+      dst: "{{ jenkins__workdir }}/"
+    - src: dockerfile-jenkins-agent
+      dst: "{{ jenkins__workdir }}/"
+    - src: jenkins.yaml
+      dst: "{{ jenkins__workdir }}/"
+    - src: plugins.txt
+      dst: "{{ jenkins__workdir }}/"
+
+
+- name: Upload templates
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "{{ ('/etc/systemd/system', jenkins__name_systemd_service) | path_join }}.service"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (jenkins__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}='{{ item.value }}'"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: JENKINS_IMAGE_VERSION
+      value: "{{ jenkins__image_version }}"
+    - file: .env
+      var: JENKINS_DIND_IMAGE_VERSION
+      value: "{{ jenkins__dind_image_version }}"
+    - file: .env
+      var: JENKINS_AGENT_IMAGE_VERSION
+      value: "{{ jenkins__agent_image_version }}"
+    - file: .env
+      var: JENKINS_ADMIN_ID
+      value: "{{ jenkins__admin_id }}"
+    - file: .env
+      var: JENKINS_ADMIN_PASSWORD
+      value: "{{ jenkins__admin_password }}"
+    - file: .env
+      var: JENKINS_CONTROLLER_URL
+      value: "{{ jenkins__controller_url }}"
+    - file: .env
+      var: JENKINS_GITLAB_URL
+      value: "{{ jenkins__gitlab_url }}"
+    - file: .env
+      var: JENKINS_GITLAB_GIT_REPO_URL
+      value: "{{ jenkins__gitlab_repo_url }}"
+    - file: .env
+      var: JENKINS_GITLAB_GIT_USER
+      value: "{{ jenkins__gitlab_git_user }}"
+    - file: .env
+      var: JENKINS_GITLAB_GIT_PAT
+      value: "{{ jenkins__gitlab_git_pat }}"
+    - file: .env
+      var: JENKINS_GITLAB_API_PAT
+      value: "{{ jenkins__gitlab_api_pat }}"
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: started
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ jenkins__name_systemd_service }}.service"

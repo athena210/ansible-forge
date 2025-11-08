@@ -1,0 +1,19 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+jenkins__workdir: /var/lib/jenkins
+jenkins__name_systemd_service: jenkins
+
+jenkins__admin_id: admin
+jenkins__admin_password: defaultsecretadminpassword
+jenkins__controller_url: "http://localhost:8080/"
+
+jenkins__image_version: lts-jdk21
+jenkins__dind_image_version: 28-dind
+jenkins__agent_image_version: jdk21
+
+# jenkins__gitlab_repo_url:
+# jenkins__gitlab_git_user:
+# jenkins__gitlab_git_pat:
+# jenkins__gitlab_api_pat:
+# jenkins__gitlab_url:

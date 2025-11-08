@@ -1,0 +1,23 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+gitlab_runner__workdir: /var/lib/gitlab-runner
+gitlab_runner__name_systemd_service: gitlab-runner
+
+gitlab_runner__reg_url:
+gitlab_runner__reg_token:
+gitlab_runner__image_version: latest
+gitlab_runner__reg_executor: docker
+gitlab_runner__reg_default_docker_image: "alpine:latest"
+gitlab_runner__reg_description: "docker runner"
+gitlab_runner__reg_tags: ""
+
+gitlab_runner__nested_docker: false
+gitlab_runner__nested_volumes: []
+#   - vol1
+#   - vol2
+
+# # Tags are comma separated:
+# gitlab_runner__reg_tags: "runner,prod"
+
+# nested volumes have the same path on host and in the nested container

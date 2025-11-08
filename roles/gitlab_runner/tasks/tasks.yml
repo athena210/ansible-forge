@@ -1,0 +1,156 @@
+---
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in gitlab_runner__os_supperted | list
+    fail_msg: Your OS is not supported
+
+
+- name: Dirs list to create
+  ansible.builtin.set_fact:
+    gitlab_runner__create_dirs: |
+      {{ ['runner-config'] + (gitlab_runner__nested_volumes | default([], true)) }}
+
+
+- name: Create dirs
+  ansible.builtin.file:
+    path: "{{ (gitlab_runner__workdir, item) | path_join }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ gitlab_runner__create_dirs }}"
+
+
+# # stop runner systemd service if running. Safe if not exist
+# - name: If systemd units exist   # noqa: command-instead-of-module
+#   ansible.builtin.command: "systemctl show -p LoadState {{ item.unit }}"
+#   register: gitlab_runner__unit_status
+#   failed_when: false
+#   changed_when: false
+#   loop_control:
+#     label: "{{ item.unit }}"
+#   loop:
+#     - unit: "{{ gitlab_runner__name_systemd_service }}.service"
+
+
+# - name: Stop systemd units
+#   ansible.builtin.systemd_service:
+#     name: "{{ svc.item.unit }}"
+#     force: true
+#     enabled: false
+#     state: stopped
+#   when: "'LoadState=loaded' in svc.stdout"
+#   loop_control:
+#     loop_var: svc
+#     label: "{{ svc.item.unit }}"
+#   loop: "{{ gitlab_runner__unit_status.results }}"
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ gitlab_runner__name_systemd_service }}.service"
+  failed_when: false
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.src }}"
+  loop:
+    - src: docker-compose.yaml
+      dst: "{{ gitlab_runner__workdir }}/"
+
+
+- name: Unregister gitlab runner
+  community.docker.docker_compose_v2_run:
+    cleanup: true
+    project_src: "{{ gitlab_runner__workdir }}"
+    service: gl_unreg
+
+
+- name: Upload templates
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "{{ ('/etc/systemd/system', gitlab_runner__name_systemd_service) | path_join }}.service"
+    - src: runner-conf-template.toml.j2
+      dst: "{{ (gitlab_runner__workdir, 'runner-config', 'template.toml') | path_join }}"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (gitlab_runner__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}='{{ item.value }}'"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: GITLAB_RUNNER_IMAGE_VERSION
+      value: "{{ gitlab_runner__image_version }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_URL
+      value: "{{ gitlab_runner__reg_url }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_TOKEN
+      value: "{{ gitlab_runner__reg_token }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_EXECUTOR
+      value: "{{ gitlab_runner__reg_executor }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_DEFAULT_DOCKER_IMAGE
+      value: "{{ gitlab_runner__reg_default_docker_image }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_DESCRIPTION
+      value: "{{ gitlab_runner__reg_description }}"
+    - file: .env
+      var: GITLAB_RUNNER_REG_TAGS
+      value: "{{ gitlab_runner__reg_tags }}"
+
+
+- name: Register gitlab runner
+  community.docker.docker_compose_v2_run:
+    cleanup: true
+    project_src: "{{ gitlab_runner__workdir }}"
+    service: gl_reg
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: started
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ gitlab_runner__name_systemd_service }}.service"
+
+# =======================
+
+# - name: Check if runner is registered
+#   ansible.builtin.stat:
+#     path: "{{ (gitlab_runner__workdir, 'runner-config', 'config.toml') | path_join }}"
+#   register: gitlab_runner__config_status
+#
+# -
+#   when: not gitlab_runner__config_status.stat.exists

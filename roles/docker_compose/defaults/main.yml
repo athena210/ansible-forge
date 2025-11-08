@@ -1,0 +1,5 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+docker_compose__workdir: /var/lib/docker-compose1
+docker_compose__name_systemd_service: docker-compose1

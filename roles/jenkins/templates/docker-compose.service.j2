@@ -1,0 +1,18 @@
+[Unit]
+Description=Docker compose {{ jenkins__name_systemd_service }}
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={{ jenkins__workdir }}
+ExecStart=/usr/bin/docker compose up --build -d
+ExecStop=/usr/bin/docker compose down --remove-orphans
+Restart=on-failure
+TimeoutStartSec=0
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

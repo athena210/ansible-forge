@@ -1,0 +1,40 @@
+{
+	"folders": [
+		{
+			"name": "ansible-forge",
+			"path": "."
+		},
+		{
+			"name": "devops-engineer-advanced",
+			"path": "../devops-engineer-advanced"
+		},
+		{
+			"name": "ansible-tests",
+			"path": "../ansible-tests"
+		},
+		{
+			"name": "mcconfig",
+			"path": "../ansible-roles/mcconfig"
+		},
+		{
+			"name": "logging",
+			"path": "../ansible-roles/logging"
+		},
+		{
+			"name": "ansible_ready",
+			"path": "../ansible-roles/ansible_ready"
+		},
+		{
+			"name": "docker_engine",
+			"path": "../ansible-roles/docker_engine"
+		},
+		{
+			"name": "ddns",
+			"path": "../ansible-roles/ddns"
+		}
+	],
+	"settings": {
+		"ansible.intelliSense.enabled": true,
+		"ansible.python.interpreterPath": "/usr/bin/python3"
+	}
+}
