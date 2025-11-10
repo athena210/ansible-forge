@@ -9,4 +9,5 @@
 
 [[runners]]
   [runners.docker]
+    pull_policy = ["always", "if-not-present"]
     volumes = [ {{ ns.volume_list | join(', ') }} ]

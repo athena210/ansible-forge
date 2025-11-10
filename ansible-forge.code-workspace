@@ -5,8 +5,12 @@
 			"path": "."
 		},
 		{
-			"name": "devops-engineer-advanced",
+			"name": "devops",
 			"path": "../devops-engineer-advanced"
+		},
+		{
+			"name": "vps-hostens",
+			"path": "../vps-hostens"
 		},
 		{
 			"name": "ansible-tests",

@@ -46,3 +46,4 @@ services:
       - ${GITLAB_RUNNER_REG_DESCRIPTION}
       - --tag-list
       - ${GITLAB_RUNNER_REG_TAGS}
+      - --run-untagged

@@ -7,7 +7,7 @@
     fail_msg: Your OS is not supported
 
 
-- name: Dirs list to create
+- name: Dirs list to create in workdir
   ansible.builtin.set_fact:
     jenkins__create_dirs:
       - /
