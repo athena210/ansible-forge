@@ -1,0 +1,12 @@
+#SPDX-License-Identifier: MIT-0
+---
+# vars file for install_consul
+
+install_consul__os_constants:
+  ubuntu: &base_ubuntu
+    repo_url: >-
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/hashicorp-archive-keyring.gpg.asc]
+      https://apt.releases.hashicorp.com
+      {{ ansible_facts['distribution_release'] }} main
+
+  debian: *base_ubuntu

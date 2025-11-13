@@ -1,0 +1,8 @@
+ARG JENKINS_IMAGE_VERSION=lts-jdk21
+FROM jenkins/jenkins:${JENKINS_IMAGE_VERSION}
+
+ENV JAVA_OPTS='-Djenkins.install.runSetupWizard=false -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.LAUNCH_DIAGNOSTICS=true'
+
+COPY plugins.txt jenkins.yaml /var/jenkins_home/
+
+RUN jenkins-plugin-cli --plugin-file /var/jenkins_home/plugins.txt

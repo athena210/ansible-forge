@@ -1,0 +1,74 @@
+---
+
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in docker_compose__os_supperted | list
+    fail_msg: Your OS is not supported
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ docker_compose__name_systemd_service }}.service"
+  failed_when: false
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.src }}"
+  loop:
+    - src: docker-compose.yaml
+      dst: "{{ docker_compose__workdir }}/"
+
+
+- name: Upload systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "/etc/systemd/system/{{ docker_compose__name_systemd_registry }}.service"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (docker_compose__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}={{ item.value }}"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: DEMO_ENV_VARIABLE
+      value: "demo env value"
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: restarted
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ docker_compose__name_systemd_service }}.service"

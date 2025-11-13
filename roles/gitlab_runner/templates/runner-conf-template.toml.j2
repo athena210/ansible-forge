@@ -1,0 +1,13 @@
+{% set ns = namespace(volume_list=[]) %}
+{%- if gitlab_runner__nested_docker -%}
+  {%- set ns.volume_list = ns.volume_list + ['"/var/run/docker.sock:/var/run/docker.sock"'] -%}
+{%- endif -%}
+{%- for vol in (gitlab_runner__nested_volumes | default([], true)) -%}
+  {%- set vol_path = ((gitlab_runner__workdir, vol) | join('/')) -%}
+  {%- set ns.volume_list = ns.volume_list + ['"' + vol_path + ':' + vol_path + '"'] -%}
+{%- endfor -%}
+
+[[runners]]
+  [runners.docker]
+    pull_policy = ["always", "if-not-present"]
+    volumes = [ {{ ns.volume_list | join(', ') }} ]

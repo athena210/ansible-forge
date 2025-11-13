@@ -1,0 +1,49 @@
+services:
+  glrunner:
+    image: "gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-latest}"
+    # container_name: glrunner
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner-config:/etc/gitlab-runner
+
+
+  gl_unreg:
+    profiles:
+      - manual_start_only
+    image: "gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-latest}"
+    restart: no
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner-config:/etc/gitlab-runner
+    command:
+      - unregister
+      - --all-runners
+
+
+  gl_reg:
+    profiles:
+      - manual_start_only
+    image: "gitlab/gitlab-runner:${GITLAB_RUNNER_IMAGE_VERSION:-latest}"
+    restart: no
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./runner-config:/etc/gitlab-runner
+    command:
+      - register
+      - --non-interactive
+      - --template-config
+      - /etc/gitlab-runner/template.toml
+      - --url
+      - ${GITLAB_RUNNER_REG_URL}
+      - --registration-token
+      - ${GITLAB_RUNNER_REG_TOKEN}
+      - --executor
+      - ${GITLAB_RUNNER_REG_EXECUTOR}
+      - --docker-image
+      - ${GITLAB_RUNNER_REG_DEFAULT_DOCKER_IMAGE}
+      - --description
+      - ${GITLAB_RUNNER_REG_DESCRIPTION}
+      - --tag-list
+      - ${GITLAB_RUNNER_REG_TAGS}
+      - --run-untagged
