@@ -1,0 +1,25 @@
+node_name = "{{ consul__node_name }}"
+datacenter = "{{ consul__datacenter }}"
+data_dir = "{{ consul__data_dir }}"
+client_addr = "{{ consul__client_addr }}"
+server = {{ consul__server | string | lower }}
+bind_addr = "{{ consul__bind_addr }}"
+encrypt = "{{ consul__encrypt }}"
+enable_local_script_checks = {{ consul__enable_local_script_checks | string | lower }}
+ui_config{enabled = true}
+{# --------------- #}
+{% set bootstrap_expect = (consul__bootstrap_expect | default('')) %}
+{% if bootstrap_expect %}
+bootstrap_expect = {{ bootstrap_expect }}
+{% endif %}
+{# --------------- #}
+{% set hostlist = (consul__retry_join_list | default([])) %}
+retry_join = [
+{% if hostlist %}
+{% for host in hostlist %}
+   "{{ host }}"{{ "," if not loop.last else "" }}
+{% endfor %}
+{% else %}
+  "provider=gce project_id={{ consul__retry_join_auto_gcp_project_id }} tag_value={{ consul__retry_join_auto_gcp_server_group_name }}"
+{% endif %}
+]

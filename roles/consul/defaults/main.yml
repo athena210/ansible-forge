@@ -1,0 +1,25 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for consul
+
+# local ip + localhost
+consul__client_addr: 127.0.0.1
+
+# local ip
+consul__bind_addr: 127.0.0.1
+
+# created by: consul keygen
+consul__encrypt: supersecret
+
+consul__datacenter: datacenter1
+consul__server: true
+consul__data_dir: /opt/consul
+consul__enable_local_script_checks: true
+consul__bootstrap_expect:
+consul__force_restart: false
+consul__node_name:
+# list servers here
+consul__retry_join_list:
+# or use gcp autodiscovery
+consul__retry_join_auto_gcp_project_id:
+consul__retry_join_auto_gcp_server_group_name:

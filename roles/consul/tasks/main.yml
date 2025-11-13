@@ -1,0 +1,7 @@
+---
+
+- name: Include task - consul
+  ansible.builtin.include_tasks:
+    file: tasks.yml
+    apply:
+      become: true
