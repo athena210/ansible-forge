@@ -1,0 +1,129 @@
+---
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == 'x86_64'
+      - ansible_facts['distribution'] | lower in consul_install__os_constants.keys() | list
+    fail_msg: Your OS is not supported
+
+- name: Facts
+  ansible.builtin.set_fact:
+    consul_install__os_vars: "{{ consul_install__os_constants[ansible_facts['distribution'] | lower] }}"
+
+- name: Get package info
+  ansible.builtin.command: apt-cache policy consul
+  register: consul_install__package_info_output
+  environment:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  changed_when: false
+
+- name: Parse package info
+  ansible.builtin.set_fact:
+    consul_install__need_specific_version: "{{ consul_install__version_needed != '' }}"
+    consul_install__installed_version: >-
+      {{ consul_install__package_info_output.stdout | regex_search('\sInstalled:\s+(\S+)', '\1') | first }}
+    consul_install__latest_version: >-
+      {{ consul_install__package_info_output.stdout | regex_search('\sCandidate:\s+(\S+)', '\1') | first }}
+
+- name: Check if it is installed
+  ansible.builtin.set_fact:
+    consul_install__repo_installed: >-
+      {{ consul_install__latest_version not in ['(none)', ''] }}
+    consul_install__already_installed: >-
+      {{ consul_install__installed_version not in ['(none)', ''] }}
+
+- name: Results
+  ansible.builtin.debug:
+    verbosity: 1
+    msg: [
+      "if repo installed: {{ consul_install__repo_installed }}",
+      "latest available: {{ consul_install__latest_version }}",
+      "if installed: {{ consul_install__already_installed }}",
+      "installed version: {{ consul_install__installed_version }}",
+      "if specific version needed: {{ consul_install__need_specific_version }}",
+      "version needed: {{ consul_install__version_needed }}"
+    ]
+
+- name: Download GPG key
+  ansible.builtin.get_url:
+    url: https://apt.releases.hashicorp.com/gpg
+    dest: /etc/apt/keyrings/hashicorp-archive-keyring.gpg.asc
+    mode: "0644"
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: Add repo
+  ansible.builtin.apt_repository:
+    repo: "{{ consul_install__os_vars['repo_url'] }}"
+    filename: hashicorp   # .list will be added to the filename automatically
+    state: present
+    update_cache: true
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: Get package info again
+  ansible.builtin.command: apt-cache policy consul
+  register: consul_install__package_info_output
+  environment:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  changed_when: false
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: Parse package info again
+  ansible.builtin.set_fact:
+    consul_install__need_specific_version: "{{ consul_install__version_needed != '' }}"
+    consul_install__installed_version: >-
+      {{ consul_install__package_info_output.stdout | regex_search('\sInstalled:\s+(\S+)', '\1') | first }}
+    consul_install__latest_version: >-
+      {{ consul_install__package_info_output.stdout | regex_search('\sCandidate:\s+(\S+)', '\1') | first }}
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: Check again if it is installed
+  ansible.builtin.set_fact:
+    consul_install__repo_installed: >-
+      {{ consul_install__latest_version not in ['(none)', ''] }}
+    consul_install__already_installed: >-
+      {{ consul_install__installed_version not in ['(none)', ''] }}
+  when: not consul_install__repo_installed or consul_install__force_update_repo
+
+- name: New results
+  ansible.builtin.debug:
+    verbosity: 1
+    msg: [
+      "if repo installed: {{ consul_install__repo_installed }}",
+      "latest available: {{ consul_install__latest_version }}",
+      "if installed: {{ consul_install__already_installed }}",
+      "installed version: {{ consul_install__installed_version }}",
+      "if specific version needed: {{ consul_install__need_specific_version }}",
+      "version needed: {{ consul_install__version_needed }}"
+    ]
+
+- name: Install latest version  # noqa: package-latest
+  ansible.builtin.apt:
+    name: consul
+    state: latest
+    allow_downgrade: true
+  when: >
+    consul_install__repo_installed and
+    not consul_install__need_specific_version and
+    (
+      consul_install__force_install or
+      consul_install__latest_version != consul_install__installed_version
+    )
+
+- name: Install specific version
+  ansible.builtin.apt:
+    name: "consul={{ consul_install__version_needed }}"
+    allow_downgrade: true
+  when: >
+    consul_install__repo_installed and
+    consul_install__need_specific_version and
+    (
+      consul_install__force_install or
+      consul_install__version_needed != consul_install__installed_version
+    )

@@ -1,0 +1,10 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+# run
+#   apt-cache policy consul
+# to see available versions
+# for example 1.21.3-1
+consul_install__version_needed: ""
+consul_install__force_update_repo: true
+consul_install__force_install: false
