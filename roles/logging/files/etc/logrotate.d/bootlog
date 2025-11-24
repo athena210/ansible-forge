@@ -1,0 +1,5 @@
+/var/log/boot.log
+{
+    copytruncate
+    notifempty
+}

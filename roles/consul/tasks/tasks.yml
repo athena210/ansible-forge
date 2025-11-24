@@ -9,7 +9,7 @@
 
 - name: Validate config
   ansible.builtin.command: consul validate /etc/consul.d/consul.hcl
-  register: command_validate_output
+  register: consul__command_validate_output
   environment:
     LANG: en_US.UTF-8
     LC_ALL: en_US.UTF-8
@@ -17,19 +17,19 @@
 
 - name: Config is invalid
   ansible.builtin.debug:
-    msg: "Validation failed with return code {{ command_validate_output.rc }}"
-  when: command_validate_output.rc != 0
+    msg: "Validation failed with return code {{ consul__command_validate_output.rc }}"
+  when: consul__command_validate_output.rc != 0
 
 - name: Reload consul service
   ansible.builtin.systemd_service:
     name: consul
     state: reloaded
     enabled: true
-  when: command_validate_output.rc == 0 and not consul__force_restart
+  when: consul__command_validate_output.rc == 0 and not consul__force_restart
 
 - name: Restart consul service
   ansible.builtin.systemd_service:
     name: consul
     state: restarted
     enabled: true
-  when: command_validate_output.rc == 0 and consul__force_restart
+  when: consul__command_validate_output.rc == 0 and consul__force_restart

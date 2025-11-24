@@ -1,0 +1,12 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+elk__workdir: /var/lib/docker-elk
+elk__name_systemd_service: docker-elk
+
+# elk__elastic_password:
+# elk__elastic_logstash_password:
+# elk__elastic_kibana_password:
+# elk__kibana_domain:
+# elk__kibana_session_key:
+# elk__kibana_storage_key:

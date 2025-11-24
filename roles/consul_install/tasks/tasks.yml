@@ -127,3 +127,8 @@
       consul_install__force_install or
       consul_install__version_needed != consul_install__installed_version
     )
+
+- name: Install
+  ansible.builtin.apt:
+    name:
+      - python3-consul

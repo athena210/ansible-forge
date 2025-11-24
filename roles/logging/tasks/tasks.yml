@@ -1,0 +1,75 @@
+---
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in logging__os_supperted | list
+    fail_msg: Your OS is not supported
+
+- name: Install rsyslog and logrotate with apt
+  ansible.builtin.apt:
+    update_cache: "{{ logging__pkg_cache_update }}"
+    name:
+      - rsyslog
+      - logrotate
+  when: ansible_os_family | lower == "debian"
+
+# - name: Install rsyslog and logrotate with apk
+#   community.general.apk:
+#     update_cache: "{{ logging__pkg_cache_update }}"
+#     name: "{{ logging__const.install_packages[ansible_os_family | lower] }}"
+#   when: ansible_os_family | lower == "alpine"
+
+# - name: Install rsyslog and logrotate with zypper
+#   community.general.zypper:
+#     update_cache: "{{ logging__pkg_cache_update }}"
+#     name: "{{ logging__const.install_packages[ansible_os_family | lower] }}"
+#   when: ansible_os_family | lower == "suse"
+
+# - name: Install rsyslog and logrotate with pacman
+#   community.general.pacman:
+#     update_cache: "{{ logging__pkg_cache_update }}"
+#     name: "{{ logging__const.install_packages[ansible_os_family | lower] }}"
+#   when: ansible_os_family | lower == "archlinux"
+
+# - name: Install rsyslog and logrotate with dnf
+#   ansible.builtin.dnf:
+#     update_cache: "{{ logging__pkg_cache_update }}"
+#     name: "{{ logging__const.install_packages[ansible_os_family | lower] }}"
+#   when: ansible_os_family | lower == "redhat"
+
+- name: Change journald.conf
+  community.general.ini_file:
+    dest: /etc/systemd/journald.conf
+    section: Journal
+    option: "{{ item.name }}"
+    value: "{{ item.value }}"
+  loop_control:
+    label: "{{ item.name }}"
+  loop:
+    - name: Storage
+      value: volatile
+    - name: RuntimeMaxUse
+      value: 8M
+    - name: RuntimeMaxFileSize
+      value: 1M
+
+- name: Upload configs
+  ansible.builtin.copy:
+    src: etc/
+    dest: /etc/
+    mode: "0644"
+
+- name: Delete journald logs
+  ansible.builtin.file:
+    path: /var/log/journal
+    state: absent
+
+- name: Restart services
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: restarted
+    name: "{{ item }}"
+  loop: ["rsyslog.service", "logrotate.service", "systemd-journald.service"]
+

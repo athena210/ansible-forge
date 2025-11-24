@@ -1,0 +1,12 @@
+/var/log/apt/term.log {
+    minsize 2M
+    monthly
+    rotate 12
+}
+
+/var/log/apt/history.log {
+    minsize 2M
+    monthly
+    rotate 12
+}
+

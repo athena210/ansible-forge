@@ -1,0 +1,13 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+ddns__update_interval_minutes: 60
+ddns__clean_all: true
+ddns__force_update_repo: true
+
+ddns__domains:
+# ddns__domains:
+#   - domain: only4.gmail.cn
+#     url4: https://ddns.host.com/key-a
+#   - domain: only6.gmail.cn
+#     url6: https://ddns.host.com/key-b

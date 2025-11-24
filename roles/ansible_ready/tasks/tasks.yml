@@ -1,0 +1,86 @@
+---
+
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in ansible_ready__os_const.install_packages.keys() | list
+    fail_msg: Your OS is not supported
+
+- name: Figure out a new password
+  ansible.builtin.set_fact:
+    ansible_ready__new_password: "{{ ansible_ready__ansible_password | default(lookup('community.general.random_string', length=12), true) }}"
+
+- name: Create ansible user
+  ansible.builtin.user:
+    name: ansible
+    create_home: true
+    password: "{{ ansible_ready__new_password | ansible.builtin.password_hash('sha512') }}"
+
+- name: Add ansible user to sudo group. Allow fails
+  ansible.builtin.user:
+    name: ansible
+    groups: sudo
+    append: true
+  ignore_errors: true
+
+- name: Create .ssh dir
+  ansible.builtin.file:
+    path: "{{ (ansible_ready__home_basedir, 'ansible/.ssh') | path_join }}"
+    state: directory
+    owner: ansible
+    group: ansible
+    mode: "0700"
+
+- name: Upload ssh key
+  ansible.builtin.copy:
+    src: "{{ (playbook_dir, ansible_ready__ssh_key_file) | path_join }}"
+    dest: "{{ (ansible_ready__home_basedir, 'ansible/.ssh/authorized_keys') | path_join }}"
+    owner: ansible
+    group: ansible
+    mode: "0600"
+
+- name: Upload sudoers NOPASSWD
+  ansible.builtin.copy:
+    src: sudoers_ansible
+    dest: /etc/sudoers.d/ansible
+
+- name: Install python3 and pip3 with apt
+  ansible.builtin.apt:
+    update_cache: "{{ ansible_ready__pkg_cache_update }}"
+    name: "{{ ansible_ready__os_const.install_packages[ansible_os_family | lower] }}"
+  when: ansible_os_family | lower == "debian"
+
+- name: Install python3 and pip3 with apk
+  community.general.apk:
+    update_cache: "{{ ansible_ready__pkg_cache_update }}"
+    name: "{{ ansible_ready__os_const.install_packages[ansible_os_family | lower] }}"
+  when: ansible_os_family | lower == "alpine"
+
+- name: Install python3 and pip3 with zypper
+  community.general.zypper:
+    update_cache: "{{ ansible_ready__pkg_cache_update }}"
+    name: "{{ ansible_ready__os_const.install_packages[ansible_os_family | lower] }}"
+  when: ansible_os_family | lower == "suse"
+
+- name: Install python3 and pip3 with pacman
+  community.general.pacman:
+    update_cache: "{{ ansible_ready__pkg_cache_update }}"
+    name: "{{ ansible_ready__os_const.install_packages[ansible_os_family | lower] }}"
+  when: ansible_os_family | lower == "archlinux"
+
+- name: Install python3 and pip3 with dnf
+  ansible.builtin.dnf:
+    update_cache: "{{ ansible_ready__pkg_cache_update }}"
+    name: "{{ ansible_ready__os_const.install_packages[ansible_os_family | lower] }}"
+  when: ansible_os_family | lower == "redhat"
+
+- name: Deny password and root login
+  ansible.builtin.copy:
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+    dest: /etc/ssh/sshd_config.d/00_noroot_keyauth.conf
+    mode: "0644"
+  when: ansible_ready__ssh_deny_root_and_password
+  notify: handler_reload_sshd

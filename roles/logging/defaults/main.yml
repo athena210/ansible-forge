@@ -1,2 +1,4 @@
 #SPDX-License-Identifier: MIT-0
 ---
+
+logging__pkg_cache_update: true

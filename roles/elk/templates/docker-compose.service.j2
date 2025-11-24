@@ -1,5 +1,5 @@
 [Unit]
-Description=Docker compose {{ docker_compose__name_systemd_service }}
+Description=Docker compose ELK
 After=network-online.target docker.service
 Requires=docker.service
 Wants=network-online.target
@@ -7,7 +7,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory={{ docker_compose__workdir }}
+WorkingDirectory={{ elk__workdir }}
 ExecStart=/usr/bin/docker compose up -d --remove-orphans
 ExecStop=/usr/bin/docker compose down
 Restart=on-failure

@@ -1,0 +1,267 @@
+---
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['architecture'] == 'x86_64'
+      - ansible_facts['distribution'] | lower in install_docker__os_constants.keys() | list
+    fail_msg: Your OS is not supported
+
+- name: Facts
+  ansible.builtin.set_fact:
+    install_docker__os_vars: "{{ install_docker__os_constants[ansible_facts['distribution'] | lower] }}"
+
+- name: Get package info
+  ansible.builtin.command: apt-cache policy {{ item }}
+  register: install_docker__package_info_output
+  environment:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  loop: "{{ install_docker__os_vars['main_pkgs'] }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: false
+
+- name: Parse package info
+  ansible.builtin.set_fact:
+    install_docker__need_specific_version: "{{ install_docker__version_needed != '' }}"
+    install_docker__installed_version_d: >-
+      {{ install_docker__installed_version_d | default({}) |
+         combine({
+           (pkg_policy_output.item): pkg_policy_output.stdout | regex_search('\sInstalled:\s+(\S+)', '\1') | default(['']) | first
+         })
+      }}
+    install_docker__latest_version_d: >-
+      {{ install_docker__latest_version_d | default({}) |
+         combine({
+           (pkg_policy_output.item): pkg_policy_output.stdout | regex_search('\sCandidate:\s+(\S+)', '\1') | default(['']) | first
+         })
+      }}
+  loop: "{{ install_docker__package_info_output.results }}"
+  loop_control:
+    loop_var: pkg_policy_output
+    label: "{{ pkg_policy_output.item }}"
+
+- name: Check if versions are the same
+  ansible.builtin.set_fact:
+    install_docker__installed_version_unique: >-
+      {{ install_docker__installed_version_d | dict2items | map(attribute='value') | unique }}
+    install_docker__latest_version_unique: >-
+      {{ install_docker__latest_version_d | dict2items | map(attribute='value') | unique }}
+  loop: "{{ install_docker__package_info_output.results }}"
+  loop_control:
+    loop_var: pkg_policy_output
+    label: "{{ pkg_policy_output.item }}"
+
+- name: Combine results
+  ansible.builtin.set_fact:
+    install_docker__installed_version: >-
+      {{
+        (install_docker__installed_version_unique | length == 1)
+        | ternary(install_docker__installed_version_unique | first, '')
+      }}
+    install_docker__latest_version: >-
+      {{
+        (install_docker__latest_version_unique | length == 1)
+        | ternary(install_docker__latest_version_unique | first, '')
+      }}
+
+- name: Check if it is installed
+  ansible.builtin.set_fact:
+    install_docker__repo_installed: >-
+      {{ install_docker__latest_version not in ['(none)', ''] }}
+    install_docker__already_installed: >-
+      {{ install_docker__installed_version not in ['(none)', ''] }}
+
+- name: Results
+  ansible.builtin.debug:
+    verbosity: 1
+    msg: [
+      "if repo installed: {{ install_docker__repo_installed }}",
+      "latest available: {{ install_docker__latest_version }}",
+      "if installed: {{ install_docker__already_installed }}",
+      "installed version: {{ install_docker__installed_version }}",
+      "if specific version needed: {{ install_docker__need_specific_version }}",
+      "version needed: {{ install_docker__version_needed }}"
+    ]
+
+- name: Uninstall old packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ install_docker__os_vars['uninstall_pkgs'] }}"
+    state: absent
+  when: not install_docker__already_installed
+
+- name: Download GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Docker repo
+  ansible.builtin.apt_repository:
+    repo: "{{ install_docker__os_vars['repo_url'] }}"
+    filename: docker_engine   # .list will be added to the filename automatically
+    state: present
+    update_cache: true
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Get package info again
+  ansible.builtin.command: apt-cache policy {{ item }}
+  register: install_docker__package_info_output
+  environment:
+    LANG: en_US.UTF-8
+    LC_ALL: en_US.UTF-8
+  loop: "{{ install_docker__os_vars['main_pkgs'] }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: false
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Parse package info again
+  ansible.builtin.set_fact:
+    install_docker__need_specific_version: "{{ install_docker__version_needed != '' }}"
+    install_docker__installed_version_d: >-
+      {{ install_docker__installed_version_d | default({}) |
+         combine({
+           (pkg_policy_output.item): pkg_policy_output.stdout | regex_search('\sInstalled:\s+(\S+)', '\1') | default(['']) | first
+         })
+      }}
+    install_docker__latest_version_d: >-
+      {{ install_docker__latest_version_d | default({}) |
+         combine({
+           (pkg_policy_output.item): pkg_policy_output.stdout | regex_search('\sCandidate:\s+(\S+)', '\1') | default(['']) | first
+         })
+      }}
+  loop: "{{ install_docker__package_info_output.results }}"
+  loop_control:
+    loop_var: pkg_policy_output
+    label: "{{ pkg_policy_output.item }}"
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Check again if versions are the same
+  ansible.builtin.set_fact:
+    install_docker__installed_version_unique: >-
+      {{ install_docker__installed_version_d | dict2items | map(attribute='value') | unique }}
+    install_docker__latest_version_unique: >-
+      {{ install_docker__latest_version_d | dict2items | map(attribute='value') | unique }}
+  loop: "{{ install_docker__package_info_output.results }}"
+  loop_control:
+    loop_var: pkg_policy_output
+    label: "{{ pkg_policy_output.item }}"
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Combine results again
+  ansible.builtin.set_fact:
+    install_docker__installed_version: >-
+      {{
+        (install_docker__installed_version_unique | length == 1)
+        | ternary(install_docker__installed_version_unique | first, '')
+      }}
+    install_docker__latest_version: >-
+      {{
+        (install_docker__latest_version_unique | length == 1)
+        | ternary(install_docker__latest_version_unique | first, '')
+      }}
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: Check again if it is installed
+  ansible.builtin.set_fact:
+    install_docker__repo_installed: >-
+      {{ install_docker__latest_version not in ['(none)', ''] }}
+    install_docker__already_installed: >-
+      {{ install_docker__installed_version not in ['(none)', ''] }}
+  when: not install_docker__repo_installed or install_docker__force_update_repo
+
+- name: New results
+  ansible.builtin.debug:
+    msg: [
+      "if repo installed: {{ install_docker__repo_installed }}",
+      "latest available: {{ install_docker__latest_version }}",
+      "if installed: {{ install_docker__already_installed }}",
+      "installed version: {{ install_docker__installed_version }}",
+      "if specific version needed: {{ install_docker__need_specific_version }}",
+      "version needed: {{ install_docker__version_needed }}"
+    ]
+
+- name: Extended disk tasks
+  when: >
+    (hostvars[inventory_hostname].labels.extra_disk | default('') | lower == 'true') and
+    install_docker__repo_installed and
+    (
+      install_docker__force_install or
+      install_docker__version_needed != install_docker__installed_version
+    )
+  block:
+    - name: Wait for the extended disk to be mounted
+      ansible.builtin.wait_for:
+        path: "{{ install_docker__data_root }}"
+        state: present
+        delay: 10
+        timeout: 300
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ install_docker__data_root }}/docker/"
+        - "{{ install_docker__data_root }}/containerd/"
+        - /etc/docker/
+        - /etc/containerd/
+
+    - name: Docker config
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dst }}"
+        mode: '0644'
+      loop:
+        - src: daemon.json.j2
+          dst: /etc/docker/daemon.json
+        - src: config.toml.j2
+          dst: /etc/containerd/config.toml
+
+
+- name: Install latest version  # noqa: package-latest
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: latest
+    allow_downgrade: true
+  when: >
+    install_docker__repo_installed and
+    not install_docker__need_specific_version and
+    (
+      install_docker__force_install or
+      install_docker__latest_version != install_docker__installed_version
+    )
+  loop: "{{ install_docker__os_vars['main_pkgs'] }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Install specific version
+  ansible.builtin.apt:
+    name: "{{ item }}={{ install_docker__version_needed }}"
+    allow_downgrade: true
+  when: >
+    install_docker__repo_installed and
+    install_docker__need_specific_version and
+    (
+      install_docker__force_install or
+      install_docker__version_needed != install_docker__installed_version
+    )
+  loop: "{{ install_docker__os_vars['main_pkgs'] }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Install latest docker additional packages  # noqa: package-latest
+  ansible.builtin.apt:
+    name: "{{ install_docker__os_vars['additional_pkgs'] }}"
+    allow_downgrade: true
+    state: latest
+  when: install_docker__repo_installed
