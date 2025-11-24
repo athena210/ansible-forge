@@ -4,7 +4,7 @@
   ansible.builtin.assert:
     quiet: true
     that:
-      - ansible_os_family | lower in docker_compose__os_supperted | list
+      - ansible_os_family | lower in elk__os_supperted | list
     fail_msg: Your OS is not supported
 
 
@@ -17,8 +17,16 @@
   loop_control:
     label: "{{ item.unit }}"
   loop:
-    - unit: "{{ docker_compose__name_systemd_service }}.service"
+    - unit: "{{ elk__name_systemd_service }}.service"
   failed_when: false
+
+
+- name: Set system max_map_count
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: 262144
+    sysctl_set: true
+    sysctl_file: /etc/sysctl.d/elastic.conf
 
 
 - name: Upload files
@@ -32,7 +40,7 @@
   loop:
     - src: .
       name: All files
-      dst: "{{ docker_compose__workdir }}/"
+      dst: "{{ elk__workdir }}/"
 
 
 - name: Upload systemd units
@@ -45,12 +53,12 @@
     label: "{{ item.dst }}"
   loop:
     - src: docker-compose.service.j2
-      dst: "/etc/systemd/system/{{ docker_compose__name_systemd_service }}.service"
+      dst: "/etc/systemd/system/{{ elk__name_systemd_service }}.service"
 
 
 - name: Populate env
   ansible.builtin.lineinfile:
-    path: "{{ (docker_compose__workdir, item.file) | path_join }}"
+    path: "{{ (elk__workdir, item.file) | path_join }}"
     mode: "0640"
     create: true
     line: "{{ item.var }}={{ item.value }}"
@@ -60,7 +68,25 @@
   loop:
     - file: .env
       var: PROJECT_COMPOSE_NAME
-      value: "{{ docker_compose__name_systemd_service }}"
+      value: "{{ elk__name_systemd_service }}"
+    - file: .env
+      var: PROJECT_ELASTIC_PASSWORD
+      value: "{{ elk__elastic_password }}"
+    - file: .env
+      var: PROJECT_ELASTIC_LOGSTASH_PASSWORD
+      value: "{{ elk__elastic_logstash_password }}"
+    - file: .env
+      var: PROJECT_ELASTIC_KIBANA_PASSWORD
+      value: "{{ elk__elastic_kibana_password }}"
+    - file: .env
+      var: PROJECT_KIBANA_DOMAIN
+      value: "{{ elk__kibana_domain }}"
+    - file: .env
+      var: PROJECT_KIBANA_SESSION_KEY
+      value: "{{ elk__kibana_session_key }}"
+    - file: .env
+      var: PROJECT_KIBANA_STORAGE_KEY
+      value: "{{ elk__kibana_storage_key }}"
 
 
 - name: Restart systemd units
@@ -72,4 +98,4 @@
   loop_control:
     label: "{{ item.unit }}"
   loop:
-    - unit: "{{ docker_compose__name_systemd_service }}.service"
+    - unit: "{{ elk__name_systemd_service }}.service"

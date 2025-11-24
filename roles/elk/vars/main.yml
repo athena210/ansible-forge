@@ -1,2 +1,5 @@
 #SPDX-License-Identifier: MIT-0
 ---
+
+elk__os_supperted:
+  - debian

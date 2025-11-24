@@ -1,5 +1,5 @@
 ---
-- name: Import tasks
+- name: Import handlers
   ansible.builtin.import_tasks:
-    file: tasks.yml
+    file: handlers.yml
   become: true

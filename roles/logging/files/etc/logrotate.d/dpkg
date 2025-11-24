@@ -1,0 +1,6 @@
+/var/log/dpkg.log {
+    minsize 2M
+    monthly
+    rotate 12
+    create 644 root root
+}

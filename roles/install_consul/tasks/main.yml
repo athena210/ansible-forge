@@ -1,7 +1,0 @@
----
-
-- name: Include task - consul engine
-  ansible.builtin.include_tasks:
-    file: tasks.yml
-    apply:
-      become: true

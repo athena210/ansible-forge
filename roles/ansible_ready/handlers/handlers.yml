@@ -1,0 +1,10 @@
+---
+
+- name: (Handler) Reload sshd
+  ansible.builtin.service:
+    name: sshd
+    state: reloaded
+    enabled: true
+  async: 10
+  poll: 0
+  listen: handler_reload_sshd

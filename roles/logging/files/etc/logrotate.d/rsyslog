@@ -1,0 +1,11 @@
+/var/log/remote/*/messages
+/var/log/docker/*/messages
+/var/log/messages
+/var/log/dmesg
+{
+    minsize 2M
+    sharedscripts
+    postrotate
+        /usr/lib/rsyslog/rsyslog-rotate
+    endscript
+}

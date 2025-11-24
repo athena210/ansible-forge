@@ -1,0 +1,9 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for ansible_ready
+
+ansible_ready__ssh_key_file: ansible-ssh.key.pub
+ansible_ready__pkg_cache_update: true
+ansible_ready__home_basedir: /home
+ansible_ready__ansible_password:
+ansible_ready__ssh_deny_root_and_password: true

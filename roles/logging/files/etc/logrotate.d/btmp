@@ -1,0 +1,8 @@
+# logs failed login attempts
+# no packages own btmp -- we'll rotate it here
+/var/log/btmp
+/var/log/faillog
+{
+    minsize 2M
+    create 0660 root utmp
+}

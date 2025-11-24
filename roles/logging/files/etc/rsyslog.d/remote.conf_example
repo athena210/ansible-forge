@@ -1,0 +1,18 @@
+module(load="imudp")
+input(type="imudp" port="514" ruleset="remote")
+
+$AllowedSender UDP, \
+    [::1], \
+    [fd00::]/8, \
+    [fe80::]/10, \
+    127.0.0.1, \
+    10.0.0.0/8, \
+    172.16.0.0/12, \
+    192.168.0.0/16
+
+
+template(name="template_remote" type="string" string="/var/log/remote/%fromhost-ip%/messages")
+ruleset(name="remote") {
+    action(type="omfile" dynaFile="template_remote" createDirs="on")
+    stop
+}
