@@ -10,3 +10,4 @@ elk__name_systemd_service: docker-elk
 # elk__kibana_domain:
 # elk__kibana_session_key:
 # elk__kibana_storage_key:
+# elk__hostname:

@@ -21,64 +21,14 @@ services:
     image: "docker.elastic.co/elasticsearch/elasticsearch:${PROJECT_ELK_IMAGE_VERSION:-9.2.1}"
     restart: no
     user: "0"
-    command: >
-      bash -c '
-        if [ x${PROJECT_ELASTIC_PASSWORD} == x ]; then
-          echo "Set the PROJECT_ELASTIC_PASSWORD environment variable in the .env file";
-          exit 1;
-        elif [ x${PROJECT_ELASTIC_KIBANA_PASSWORD} == x ]; then
-          echo "Set the PROJECT_ELASTIC_KIBANA_PASSWORD environment variable in the .env file";
-          exit 1;
-        fi;
-        if [ ! -f config/certs/ca.zip ]; then
-          echo "Creating CA";
-          bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
-          unzip config/certs/ca.zip -d config/certs;
-        fi;
-        if [ ! -f config/certs/certs.zip ]; then
-          echo "Creating certs";
-          echo -ne \
-          "instances:\n"\
-          "  - name: elastic1\n"\
-          "    dns:\n"\
-          "      - elastic1\n"\
-          "      - localhost\n"\
-          "    ip:\n"\
-          "      - 127.0.0.1\n"\
-          > config/certs/instances.yml;
-          bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
-          unzip config/certs/certs.zip -d config/certs;
-        fi;
-        echo "Setting file permissions";
-        chown -R root:root config/certs;
-        find . -type d -exec chmod 755 \{\} \;;
-        find . -type f -exec chmod 644 \{\} \;;
-        echo "Waiting for Elasticsearch availability";
-        until curl -s --cacert config/certs/ca/ca.crt https://elastic1:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
-        echo "Setting kibana_system password";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${PROJECT_ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elastic1:9200/_security/user/kibana_system/_password -d "{\"password\":\"${PROJECT_ELASTIC_KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
-        echo "Creating logstash_writer role";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${PROJECT_ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elastic1:9200/_security/role/logstash_writer -d \
-        "{ \
-          \"cluster\": [\"manage_index_templates\", \"monitor\", \"manage_ilm\"], \
-          \"indices\": [ \
-            { \
-              \"names\": [\"logstash-*\"], \
-              \"privileges\": [\"write\", \"create\", \"create_index\", \"manage\", \"manage_ilm\"] \
-            } \
-          ] \
-        }" | grep -q "\"created\":true"; do sleep 10; done;
-        echo "Creating logstash_internal user";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${PROJECT_ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://elastic1:9200/_security/user/logstash_internal -d \
-        "{ \
-          \"password\" : \"${PROJECT_ELASTIC_LOGSTASH_PASSWORD}\", \
-          \"roles\" : [ \"logstash_writer\" ], \
-          \"full_name\" : \"Internal Logstash User\" \
-        }" | grep -q "\"created\":true"; do sleep 10; done;
-        echo "All done!";
-      '
+    command: bash /elastic-init.sh
+    environment:
+      - PROJECT_ELASTIC_PASSWORD=${PROJECT_ELASTIC_PASSWORD}
+      - PROJECT_ELASTIC_KIBANA_PASSWORD=${PROJECT_ELASTIC_KIBANA_PASSWORD}
+      - PROJECT_ELASTIC_LOGSTASH_PASSWORD=${PROJECT_ELASTIC_LOGSTASH_PASSWORD}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
+      - ./elastic-init/elastic-init.sh:/elastic-init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "[ -f config/certs/elastic1/elastic1.crt ]"]
       interval: 1s
@@ -167,6 +117,7 @@ services:
         condition: service_healthy
     ports:
       - 5044:5044
+    hostname: "${PROJECT_HOST_HOSTNAME:-undefined}"
     volumes:
       - certs:/usr/share/logstash/config/certs:ro
       - ./logstash:/usr/share/logstash/pipeline

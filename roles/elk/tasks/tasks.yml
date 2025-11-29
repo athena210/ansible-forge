@@ -87,6 +87,9 @@
     - file: .env
       var: PROJECT_KIBANA_STORAGE_KEY
       value: "{{ elk__kibana_storage_key }}"
+    - file: .env
+      var: PROJECT_HOST_HOSTNAME
+      value: "{{ elk__hostname }}"
 
 
 - name: Restart systemd units

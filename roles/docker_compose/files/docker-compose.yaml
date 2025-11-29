@@ -1,13 +1,7 @@
-networks:
-  net1:
-
 services:
   autoheal:
     image: "willfarrell/autoheal:${PROJECT_AUTOHEAL_IMAGE_VERSION:-latest}"
-    container_name: autoheal
     restart: unless-stopped
-    networks:
-      - net1
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
@@ -18,10 +12,7 @@ services:
 
   nginx:
     image: "nginx:${PROJECT_NGINX_IMAGE_VERSION:-alpine}"
-    container_name: nginx
     restart: unless-stopped
-    networks:
-      - net1
     ports:
       - 443:443
     # healthcheck:
@@ -29,5 +20,5 @@ services:
     # volumes:
     #   - ./letsencrypt:/etc/letsencrypt:r
     #   - ./proxy.conf:/etc/nginx/conf.d/default.conf:r
-    # labels:
-    #   - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
