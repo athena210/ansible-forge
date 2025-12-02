@@ -1,0 +1,14 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+
+grafana__workdir: /var/lib/docker-grafana
+grafana__name_systemd_service: docker-grafana
+
+grafana__version_grafana:
+grafana__version_nginx:
+
+# grafana__admin_password:
+
+grafana__provision_datasource_prometheus_host: localhost
+grafana__provision_datasource_victoriametrics_host: localhost

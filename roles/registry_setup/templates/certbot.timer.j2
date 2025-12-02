@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew registry cert (timer)
+
+[Timer]
+OnUnitActiveSec={{ registry_setup__certbot_interval_hours }}h
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

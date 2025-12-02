@@ -1,0 +1,9 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for registry_setup
+
+registry_setup__workdir: /var/lib/docker-registry
+registry_setup__name_systemd_registry: docker-registry
+registry_setup__name_systemd_certbot: docker-registry-certbot
+registry_setup__certbot_interval_hours: 12
+registry_setup__domain_name:

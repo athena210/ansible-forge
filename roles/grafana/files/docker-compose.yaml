@@ -1,0 +1,100 @@
+volumes:
+  grafana-db:
+  dnsmasq-tmp:
+
+networks:
+  net1:
+    ipam:
+      config:
+        - subnet: 192.168.171.0/24
+
+
+x-dns_container: &dns_container
+  dns:
+    - 192.168.171.10
+
+
+x-internal_hosts: &internal_hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+    - "dnsmasq.docker.internal:192.168.171.10"
+    - "grafana.docker.internal:192.168.171.11"
+    - "nginx.docker.internal:192.168.171.12"
+
+
+services:
+  autoheal:
+    image: "willfarrell/autoheal:${PROJECT_IMAGE_AUTOHEAL_VERSION:-latest}"
+    # container_name: autoheal
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: ${PROJECT_COMPOSE_NAME}.autoheal
+      AUTOHEAL_INTERVAL: 10
+
+
+  dnsmasq:
+    image: "intel/esp-dnsmasq:${PROJECT_IMAGE_DNSMASQ_VERSION:-latest}"
+    restart: unless-stopped
+    volumes:
+    - ./dnsmasq:/etc/dnsmasq
+    - /etc/resolv.conf:/etc/resolv.conf:ro
+    - dnsmasq-tmp:/usr/share/nginx/html/tftp
+    networks:
+      net1:
+        ipv4_address: 192.168.171.10
+    healthcheck:
+      test: [CMD, pgrep, -f, dnsmasq]
+      timeout: 5s
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  grafana:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    # user: "0:0"
+    image: "grafana/grafana-oss:${PROJECT_IMAGE_GRAFANA_VERSION:-latest}"
+    # container_name: grafana
+    restart: unless-stopped
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana-db:/var/lib/grafana
+      - ./grafana:/etc/grafana
+    networks:
+      net1:
+        ipv4_address: 192.168.171.11
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "grafana"]
+    environment:
+    #   GF_LOG_LEVEL: debug
+    #   GF_LOG_FILTERS: 'provisioning:debug'
+      GF_PLUGINS_PREINSTALL: victoriametrics-metrics-datasource
+      PROVISIONING_ADMIN_PASS: "$PROVISIONING_ADMIN_PASS"
+      PROVISIONING_PROMETHEUS_URL: "$PROVISIONING_PROMETHEUS_URL"
+      PROVISIONING_VICTORIAMETRICS_URL: "$PROVISIONING_VICTORIAMETRICS_URL"
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  nginx:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    image: "nginx:${PROJECT_IMAGE_NGINX_VERSION:-latest}"
+    # container_name: nginx
+    restart: unless-stopped
+    ports:
+      - 80:8080
+    volumes:
+    - ./nginx_configs:/etc/nginx/conf.d
+    networks:
+      net1:
+        ipv4_address: 192.168.171.12
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--fail-early", "localhost:8080"]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"

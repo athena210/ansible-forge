@@ -1,0 +1,46 @@
+volumes:
+  victoriametrics-db:
+
+
+services:
+  autoheal:
+    image: "willfarrell/autoheal:${PROJECT_IMAGE_AUTOHEAL_VERSION:-latest}"
+    # container_name: autoheal
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: ${PROJECT_COMPOSE_NAME}.autoheal
+      AUTOHEAL_INTERVAL: 10
+
+
+  victoriametrics:
+    image: "victoriametrics/victoria-metrics:${PROJECT_IMAGE_VICTORIAMETRICS_VERSION:-latest}"
+    # container_name: victoriametrics
+    restart: unless-stopped
+    ports:
+      - 8428:8428
+    volumes:
+      - victoriametrics-db:/victoria-metrics-data
+    command:
+      - -storageDataPath=/victoria-metrics-data
+      - -http.pathPrefix=/victoriametrics
+      - -selfScrapeInterval=10s
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "victoria-metrics-prod"]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  nginx:
+    image: "nginx:${PROJECT_IMAGE_NGINX_VERSION:-latest}"
+    # container_name: nginx
+    restart: unless-stopped
+    ports:
+      - 80:8080
+    volumes:
+      - ./nginx_configs:/etc/nginx/conf.d
+    healthcheck:
+      test: [CMD, curl, --fail, --fail-early, localhost:8080]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"

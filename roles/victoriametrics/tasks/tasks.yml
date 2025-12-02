@@ -1,0 +1,96 @@
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in victoriametrics__os_supported | list
+    fail_msg: Your OS is not supported
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ victoriametrics__name_systemd_service }}.service"
+  failed_when: false
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    directory_mode: "0755"
+    force: true
+  loop_control:
+    label: "{{ item.name | default(item.src, true) }}"
+  loop:
+    - src: .
+      dst: "{{ victoriametrics__workdir }}/"
+      name: All files
+    # - src: docker-compose.yaml
+    #   dst: "{{ victoriametrics__workdir }}/"
+    # - src: nginx_configs/
+    #   dst: "{{ victoriametrics__workdir }}/"
+
+
+- name: Upload templates
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "/etc/systemd/system/{{ victoriametrics__name_systemd_service }}.service"
+    # - src: template.yml.j2
+    #   dst: "{{ (victoriametrics__workdir, item.src | regex_replace('\\.j2$', '')) | path_join }}"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (victoriametrics__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}={{ item.value }}"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: PROJECT_IMAGE_VICTORIAMETRICS_VERSION
+      value: "{{ victoriametrics__version_victoriametrics | default('latest', true) }}"
+    - file: .env
+      var: PROJECT_IMAGE_NGINX_VERSION
+      value: "{{ victoriametrics__version_nginx | default('latest', true) }}"
+    - file: .env
+      var: PROJECT_COMPOSE_NAME
+      value: "{{ victoriametrics__name_systemd_service }}"
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: restarted
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ victoriametrics__name_systemd_service }}.service"
+
+
+# CONSUL
+- name: Consul ADD service prometheus
+  community.general.consul:
+    service_name: "{{ victoriametrics__consul_service_name }}"
+    service_port: "{{ victoriametrics__consul_service_port }}"
+    tags: "{{ victoriametrics__consul_service_tags }}"
+    interval: 15s
+    tcp: "localhost:{{ victoriametrics__consul_service_port }}"

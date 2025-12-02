@@ -1,0 +1,5 @@
+---
+- name: Import tasks
+  ansible.builtin.import_tasks:
+    file: tasks.yml
+  become: true

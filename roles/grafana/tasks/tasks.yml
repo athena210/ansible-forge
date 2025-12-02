@@ -1,0 +1,91 @@
+---
+
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in grafana__os_supperted | list
+    fail_msg: Your OS is not supported
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ grafana__name_systemd_service }}.service"
+  failed_when: false
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    directory_mode: "0755"
+    force: true
+  loop_control:
+    label: "{{ item.name | default(item.src, true) }}"
+  loop:
+    - src: .
+      name: All
+      dst: "{{ grafana__workdir }}/"
+
+
+- name: Upload systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "/etc/systemd/system/{{ grafana__name_systemd_service }}.service"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (grafana__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}={{ item.value }}"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: PROVISIONING_ADMIN_PASS
+      value: "{{ grafana__admin_password }}"
+    - file: .env
+      var: PROVISIONING_PROMETHEUS_URL
+      value: "http://{{ grafana__provision_datasource_prometheus_host }}:9090/prometheus/"
+    - file: .env
+      var: PROVISIONING_VICTORIAMETRICS_URL
+      value: "http://{{ grafana__provision_datasource_victoriametrics_host }}:8428/victoriametrics/"
+    - file: .env
+      var: PROJECT_IMAGE_GRAFANA_VERSION
+      value: "{{ grafana__version_grafana | default('latest', true) }}"
+    - file: .env
+      var: PROJECT_IMAGE_NGINX_VERSION
+      value: "{{ grafana__version_nginx | default('latest', true) }}"
+    - file: .env
+      var: PROJECT_COMPOSE_NAME
+      value: "{{ grafana__name_systemd_service }}"
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: restarted
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ grafana__name_systemd_service }}.service"

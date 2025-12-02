@@ -1,0 +1,10 @@
+---
+- name: (HANDLER) Restart fail2ban service
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    masked: false
+    state: restarted
+    name: "{{ item }}"
+  loop: [fail2ban.service]
+  listen: handler_restart_fail2ban

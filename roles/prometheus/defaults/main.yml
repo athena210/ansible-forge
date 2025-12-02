@@ -1,0 +1,18 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+prometheus__workdir: /var/lib/docker-prometheus
+prometheus__name_systemd_service: docker-prometheus
+
+prometheus__smtp_alerts: {}
+prometheus__version_prometheus: latest
+prometheus__version_alertmanager: latest
+prometheus__version_nginx: latest
+
+prometheus__consul_prometheus_service_name: prometheus
+prometheus__consul_prometheus_service_port: 9090
+prometheus__consul_prometheus_service_tags: prometheus
+
+prometheus__consul_alertmanager_service_name: alertmanager
+prometheus__consul_alertmanager_service_port: 9093
+prometheus__consul_alertmanager_service_tags: alertmanager

@@ -1,0 +1,133 @@
+groups:
+  - name: Prometheus
+    rules:
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus target missing (instance {{ $labels.instance }})
+          description: "A Prometheus target has disappeared. An exporter might be crashed.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+    # - alert: PrometheusTooManyRestarts
+    #   expr: changes(process_start_time_seconds{job=~"prometheus|pushgateway|alertmanager"}[15m]) > 2
+    #   for: 0m
+    #   labels:
+    #     severity: warning
+    #   annotations:
+    #     summary: Prometheus too many restarts (instance {{ $labels.instance }})
+    #     description: "Prometheus has restarted more than twice in the last 15 minutes. It might be crashlooping.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+    # - alert: PrometheusRuleEvaluationFailures
+    #   expr: increase(prometheus_rule_evaluation_failures_total[3m]) > 0
+    #   for: 0m
+    #   labels:
+    #     severity: critical
+    #   annotations:
+    #     summary: Prometheus rule evaluation failures (instance {{ $labels.instance }})
+    #     description: "Prometheus encountered {{ $value }} rule evaluation failures, leading to potentially ignored alerts.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  - name: Node-exporter
+    rules:
+      - alert: HostOutOfMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < .10)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host out of memory (instance {{ $labels.instance }})
+          description: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HostOutOfDiskSpace
+        expr: (node_filesystem_avail_bytes{fstype!~"^(fuse.*|tmpfs|cifs|nfs)"} / node_filesystem_size_bytes < .10 and on (instance, device, mountpoint) node_filesystem_readonly == 0)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host out of disk space (instance {{ $labels.instance }})
+          description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HostOutOfInodes
+        expr: (node_filesystem_files_free / node_filesystem_files < .10 and ON (instance, device, mountpoint) node_filesystem_readonly == 0)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Host out of inodes (instance {{ $labels.instance }})
+          description: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HostSwapIsFillingUp
+        expr: ((1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 80)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host swap is filling up (instance {{ $labels.instance }})
+          description: "Swap is filling up (>80%)\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HostOomKillDetected
+        expr: (increase(node_vmstat_oom_kill[1m]) > 0)
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: Host OOM kill detected (instance {{ $labels.instance }})
+          description: "OOM kill detected\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HostRequiresReboot
+        expr: (node_reboot_required > 0)
+        for: 4h
+        labels:
+          severity: info
+        annotations:
+          summary: Host requires reboot (instance {{ $labels.instance }})
+          description: "{{ $labels.instance }} requires a reboot.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HighNetworkIncomingTraffic
+        expr: (sum(rate(node_network_receive_bytes_total{device!="lo"}[1m])) by (instance) /1024 /1024 > 50)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: Host recieves too much network traffic (instance {{ $labels.instance }})
+          description: "{{ $labels.instance }} incoming traffic:\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      - alert: HighCpuLoad
+        expr: ((1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) by (instance)) *100 > 85)
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: CPU load is too high (instance {{ $labels.instance }})
+          description: "{{ $labels.instance }} CPU load:\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+  # - name: Docker-containers
+  #   rules:
+  #     # This rule can be very noisy in dynamic infra with legitimate container start/stop/deployment.
+  #     - alert: ContainerKilled
+  #       expr: time() - container_last_seen > 60
+  #       for: 0m
+  #       labels:
+  #         severity: warning
+  #       annotations:
+  #         summary: Container killed (instance {{ $labels.instance }})
+  #         description: "A container has disappeared\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      # - alert: ContainerHighMemoryUsage
+      #   expr: (sum(container_memory_working_set_bytes{name!=""}) BY (instance, name) / sum(container_spec_memory_limit_bytes > 0) BY (instance, name) * 100) > 80
+      #   for: 2m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: Container High Memory usage (instance {{ $labels.instance }})
+      #     description: "Container Memory usage is above 80%\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+
+      # - alert: ContainerHighThrottleRate
+      #   expr: sum(increase(container_cpu_cfs_throttled_periods_total{container!=""}[5m])) by (container, pod, namespace) / sum(increase(container_cpu_cfs_periods_total[5m])) by (container, pod, namespace) > ( 25 / 100 )
+      #   for: 5m
+      #   labels:
+      #     severity: warning
+      #   annotations:
+      #     summary: Container high throttle rate (instance {{ $labels.instance }})
+      #     description: "Container is being throttled\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

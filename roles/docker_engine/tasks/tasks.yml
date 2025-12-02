@@ -189,6 +189,18 @@
       "version needed: {{ install_docker__version_needed }}"
     ]
 
+- name: Upload config
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+  loop_control:
+    label: "{{ item.name | default(item.src, true) }}"
+  loop:
+    - src: daemon.json
+      dst: /etc/docker/
+
+
 - name: Extended disk tasks
   when: >
     (hostvars[inventory_hostname].labels.extra_disk | default('') | lower == 'true') and
@@ -226,6 +238,7 @@
           dst: /etc/docker/daemon.json
         - src: config.toml.j2
           dst: /etc/containerd/config.toml
+  rescue: []
 
 
 - name: Install latest version  # noqa: package-latest

@@ -1,0 +1,33 @@
+---
+
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in fail2ban__os_supperted | list
+    fail_msg: Your OS is not supported
+
+
+- name: Upload files
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "{{ item.mode }}"
+    directory_mode: "0755"
+  loop:
+    - src: paths-common.local
+      dst: /etc/fail2ban/
+      mode: "0644"
+    - src: mc-fail2ban.conf
+      dst: /etc/mc_menu.d/
+      mode: "0644"
+  loop_control:
+    label: "{{ item.src }}"
+  notify: handler_restart_fail2ban
+
+
+- name: Install latest version
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    update_cache: "{{ fail2ban__force_update_repo }}"

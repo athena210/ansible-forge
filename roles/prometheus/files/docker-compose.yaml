@@ -1,0 +1,150 @@
+volumes:
+  prometheus-db:
+  alertmanager-db:
+  alertmanager-templates:
+  dnsmasq-tmp:
+
+
+networks:
+  net1:
+    ipam:
+      config:
+        - subnet: 192.168.171.0/24
+
+x-dns_container: &dns_container
+  dns:
+    - 192.168.171.10
+
+x-internal_hosts: &internal_hosts
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+    - "dnsmasq.docker.internal:192.168.171.10"
+    - "prometheus.docker.internal:192.168.171.11"
+    - "alertmanager.docker.internal:192.168.171.12"
+    - "consul-template.docker.internal:192.168.171.13"
+    - "nginx.docker.internal:192.168.171.14"
+
+
+services:
+  autoheal:
+    image: "willfarrell/autoheal:${PROJECT_IMAGE_AUTOHEAL_VERSION:-latest}"
+    # container_name: autoheal
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: ${PROJECT_COMPOSE_NAME}.autoheal
+      AUTOHEAL_INTERVAL: 10
+
+
+  dnsmasq:
+    image: "intel/esp-dnsmasq:${PROJECT_IMAGE_DNSMASQ_VERSION:-latest}"
+    restart: unless-stopped
+    volumes:
+    - ./dnsmasq:/etc/dnsmasq
+    - /etc/resolv.conf:/etc/resolv.conf:ro
+    - dnsmasq-tmp:/usr/share/nginx/html/tftp
+    networks:
+      net1:
+        ipv4_address: 192.168.171.10
+    healthcheck:
+      test: [CMD, pgrep, -f, dnsmasq]
+      timeout: 5s
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  prometheus:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    image: "prom/prometheus:${PROJECT_IMAGE_PROMETHEUS_VERSION:-latest}"
+    # container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus-db:/prometheus
+    networks:
+      net1:
+        ipv4_address: 192.168.171.11
+    command:
+      - --web.external-url=/prometheus/
+      #      - --web.route-prefix=/prometheus/
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    healthcheck:
+      test: [CMD, wget, -q, -o, /dev/null, -O, /dev/null, localhost:9090]
+      timeout: 5s
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  alertmanager:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    image: "quay.io/prometheus/alertmanager:${PROJECT_IMAGE_ALERTMANAGER_VERSION:-latest}"
+    # container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - 9093:9093
+    volumes:
+      - alertmanager-db:/alertmanager
+      - alertmanager-templates:/alertmanager-templates
+      - ./alertmanager:/etc/alertmanager:ro
+    networks:
+      net1:
+        ipv4_address: 192.168.171.12
+    command:
+      #      - --web.external-url=/alertmanager/
+      - --web.route-prefix=/alertmanager/
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    healthcheck:
+      test: [CMD, pgrep, -f, alertmanager]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  consul-template:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    user: 0:0
+    image: "hashicorp/consul-template:${PROJECT_IMAGE_CONSUL_TEMPLATE_VERSION:-latest}"
+    # network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./prometheus:/prometheus
+      - ./consul-template/:/etc/consul-template:ro
+    networks:
+      net1:
+        ipv4_address: 192.168.171.13
+    command: ["-config=/etc/consul-template/config.hcl"]
+    healthcheck:
+      test: [CMD, pgrep, -f, consul-template]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"
+
+
+  nginx:
+    <<:
+      - *dns_container
+      - *internal_hosts
+    image: "nginx:${PROJECT_IMAGE_NGINX_VERSION:-latest}"
+    # container_name: nginx
+    restart: unless-stopped
+    ports:
+      - 80:8080
+    volumes:
+      - ./nginx_configs:/etc/nginx/conf.d
+    networks:
+      net1:
+        ipv4_address: 192.168.171.14
+    healthcheck:
+      test: [CMD, curl, --fail, --fail-early, localhost:8080]
+    labels:
+      - ${PROJECT_COMPOSE_NAME}.autoheal="true"

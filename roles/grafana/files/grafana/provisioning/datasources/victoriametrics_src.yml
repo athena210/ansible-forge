@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+  - name: VictoriaMetrics
+    type: victoriametrics-metrics-datasource
+    uid: victoriametrics-my-uid
+    url: ${PROVISIONING_VICTORIAMETRICS_URL}
+    access: proxy
+    isDefault: false
+    editable: true

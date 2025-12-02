@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew registry cert (service)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory={{ registry_setup__workdir }}
+ExecStart=/usr/bin/docker compose run --rm --service-ports certbot
+
+[Install]
+WantedBy=multi-user.target

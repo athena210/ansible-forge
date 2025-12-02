@@ -1,0 +1,12 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+victoriametrics__workdir: /var/lib/docker-victoriametrics
+victoriametrics__name_systemd_service: docker-victoriametrics
+
+victoriametrics__version_victoriametrics: latest
+victoriametrics__version_nginx: latest
+
+victoriametrics__consul_service_name: victoriametrics
+victoriametrics__consul_service_port: 8428
+victoriametrics__consul_service_tags: victoriametrics
