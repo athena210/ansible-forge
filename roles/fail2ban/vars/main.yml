@@ -1,3 +1,3 @@
 ---
-fail2ban__os_supperted:
+fail2ban__os_supported:
   - debian

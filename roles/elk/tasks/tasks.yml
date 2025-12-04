@@ -4,7 +4,7 @@
   ansible.builtin.assert:
     quiet: true
     that:
-      - ansible_os_family | lower in elk__os_supperted | list
+      - ansible_os_family | lower in elk__os_supported | list
     fail_msg: Your OS is not supported
 
 

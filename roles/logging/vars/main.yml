@@ -1,5 +1,5 @@
 #SPDX-License-Identifier: MIT-0
 ---
 
-logging__os_supperted:
+logging__os_supported:
   - debian

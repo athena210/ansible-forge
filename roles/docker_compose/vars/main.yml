@@ -1,4 +1,4 @@
 ---
 
-docker_compose__os_supperted:
+docker_compose__os_supported:
   - debian

@@ -1,5 +1,5 @@
 #SPDX-License-Identifier: MIT-0
 ---
 
-gitlab_runner__os_supperted:
+gitlab_runner__os_supported:
   - debian
