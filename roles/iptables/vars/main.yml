@@ -1,0 +1,4 @@
+---
+
+iptables__os_supported:
+  - debian

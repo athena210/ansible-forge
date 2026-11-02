@@ -1,0 +1,13 @@
+[Unit]
+Description=Iptables service
+After=systemd-modules-load.service netfilter-persistent.service iptables-persistent.service local-fs.target
+Before=network-pre.target
+ConditionPathExists=/etc/iptables/filter.sh
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/iptables/filter.sh
+
+[Install]
+WantedBy=multi-user.target
