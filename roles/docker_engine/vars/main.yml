@@ -2,7 +2,7 @@
 ---
 # vars file for install_docker
 
-install_docker__os_constants:
+docker_engine__os_constants:
   debian:
     uninstall_pkgs:
       - docker.io

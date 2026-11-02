@@ -1,7 +1,7 @@
 #SPDX-License-Identifier: MIT-0
 ---
 
-install_docker__version_needed: ""
-install_docker__force_update_repo: true
-install_docker__force_install: false
-install_docker__data_root: /disk1
+docker_engine__version_needed: ""
+docker_engine__force_update_repo: true
+docker_engine__force_install: false
+docker_engine__data_root: /disk1

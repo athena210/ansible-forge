@@ -27,7 +27,7 @@ services:
       - -http.pathPrefix=/victoriametrics
       - -selfScrapeInterval=10s
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "victoria-metrics-prod"]
+      test: [CMD, pgrep, -f, victoria-metrics-prod]
     labels:
       - ${PROJECT_COMPOSE_NAME}.autoheal="true"
 

@@ -2,3 +2,11 @@
 ---
 
 logging__pkg_cache_update: true
+logging__disk_size: 10M
+logging__ram_size: 10M
+logging__file_size: 2M
+logging__install_rsyslogd: false
+logging__store: volatile
+# volatile - ram
+# persistent - disk
+# none - redirect
