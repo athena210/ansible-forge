@@ -1,3 +1,4 @@
 ---
 
 iptables__force_update_repo: true
+iptables__rules_file:

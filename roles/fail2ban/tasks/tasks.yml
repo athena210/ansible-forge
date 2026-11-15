@@ -18,7 +18,7 @@
     - src: paths-common.local
       dst: /etc/fail2ban/
       mode: "0644"
-    - src: mc-fail2ban.conf
+    - src: mc1-fail2ban.conf
       dst: /etc/mc_menu.d/
       mode: "0644"
   loop_control:

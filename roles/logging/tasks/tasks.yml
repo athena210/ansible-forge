@@ -17,19 +17,19 @@
     label: "{{ item.name }}"
   loop:
     - name: Storage
-      value: volatile
+      value: "{{ logging__store }}"
     - name: RuntimeMaxUse
-      value: {{ logging__ram_size }}
+      value: "{{ logging__ram_size }}"
     - name: SystemMaxUse
-      value: {{ logging__disk_size }}
+      value: "{{ logging__disk_size }}"
     - name: RuntimeMaxFileSize
-      value: {{ logging__file_size }}
+      value: "{{ logging__file_size }}"
     - name: SystemMaxFileSize
-      value: {{ logging__file_size }}
+      value: "{{ logging__file_size }}"
 
 - name: Delete journald logs
   ansible.builtin.file:
-    path: {{ item }}
+    path: "{{ item }}"
     state: absent
   loop: [/var/log/journal, /run/log/journal]
 
@@ -64,4 +64,3 @@
         state: restarted
         name: "{{ item }}"
       loop: [rsyslog.service, logrotate.service]
-
