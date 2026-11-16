@@ -1,0 +1,80 @@
+volumes:
+  asterisk-callog:
+  asterisk-history:
+  asterisk-data:
+  letsencrypt-db:
+
+
+services:
+  asterisk:
+    build:
+      context: ./build-asterisk
+    pull_policy: never
+    image: localhost/asterisk:latest
+    # dont change container name, it is being used in fail2ban filter
+    container_name: asterisk
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - PROJECT_ALPINE_VER_TLF=${PROJECT_ALPINE_VER_TLF}
+      - ASTERISK_LINE_ID=${ASTERISK_LINE_ID}
+      - ASTERISK_LINE_PASSWORD=${ASTERISK_LINE_PASSWORD}
+      - ASTERISK_LINE_TLF=${ASTERISK_LINE_TLF}
+      - ASTERISK_SERVER_DNS_NAME=${ASTERISK_SERVER_DNS_NAME}
+      - ASTERISK_SMS_PASSWORD=${ASTERISK_SMS_PASSWORD}
+      - ASTERISK_CLIENT_PASSWORD=${ASTERISK_CLIENT_PASSWORD}
+      - ASTERISK_ALIEN_PASSWORD=${ASTERISK_ALIEN_PASSWORD}
+    volumes:
+      - letsencrypt-db:/etc/letsencrypt:ro
+      - ./asterisk-templates:/etc/asterisk-templates:ro
+      - ./userlist.yaml:/userlist.yaml:ro
+      - asterisk-callog:/var/log/asterisk/cdr-custom
+      - asterisk-history:/root
+      - asterisk-data:/asterisk-data
+    labels:
+      com.project.restart-group: after-cert-renew
+
+
+  cert_issue:
+    build:
+      context: ./build-certbot
+    pull_policy: never
+    image: localhost/certbot:latest
+    # container_name: certbot_issue
+    ports:
+      - 80:80
+    volumes:
+      - letsencrypt-db:/etc/letsencrypt
+      - ./ddns-auths-certbot:/etc/ddns-auths-certbot:ro
+    entrypoint: []
+    command: >
+      certbot certonly --agree-tos -n
+      --manual --preferred-challenges dns
+      --manual-auth-hook /certbot-ddns-auth.sh
+      --manual-cleanup-hook /certbot-ddns-cleanup.sh
+      -d "$ASTERISK_SERVER_DNS_NAME"
+      -d "$ASTERISK_SERVER_DNS_DOMAIN"
+    profiles: [manual-cert-issue]
+
+
+  cert_renew:
+    build:
+      context: ./build-certbot
+    pull_policy: never
+    image: localhost/certbot:latest
+    # container_name: certbot_renew
+    restart: no
+    ports:
+      - 80:80
+    volumes:
+      - letsencrypt-db:/etc/letsencrypt
+      - ./ddns-auths-certbot:/etc/ddns-auths-certbot:ro
+      - /run/docker.sock:/run/docker.sock
+    environment:
+      - PROJECT_COMPOSE_NAME=${PROJECT_COMPOSE_NAME}
+    entrypoint: []
+    # command: ["certbot", "renew"]
+    command: >
+          certbot renew --agree-tos -n
+          --deploy-hook /certbot-renew-successful.sh
+    profiles: [manual-cert-renew]

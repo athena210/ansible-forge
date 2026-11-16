@@ -1,0 +1,159 @@
+---
+
+- name: Check whether your OS is supported
+  ansible.builtin.assert:
+    quiet: true
+    that:
+      - ansible_os_family | lower in asterisk_compose__os_supported | list
+    fail_msg: Your OS is not supported
+
+
+- name: Stop systemd units
+  ansible.builtin.systemd_service:
+    name: "{{ item.unit }}"
+    force: true
+    enabled: false
+    state: stopped
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ asterisk_compose__name_systemd_service }}.service"
+    - unit: certbot-renew.service
+    - unit: certbot-renew.timer
+  failed_when: false
+
+
+- name: Upload systemd units
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: docker-compose.service.j2
+      dst: "/etc/systemd/system/{{ asterisk_compose__name_systemd_service }}.service"
+    - src: certbot-renew.service.j2
+      dst: /etc/systemd/system/certbot-renew.service
+    - src: certbot-renew.timer.j2
+      dst: /etc/systemd/system/certbot-renew.timer
+
+
+- name: Upload files
+  ansible.posix.synchronize:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    delete: "{{ item.delete }}"
+  loop_control:
+    label: "{{ item.name | default(item.src, true) }}"
+  loop:
+    - src: compose/
+      name: Compose files
+      dest: "{{ asterisk_compose__workdir }}/"
+      delete: true
+    - src: root/
+      name: All files
+      dest: /
+      delete: false
+
+
+- name: Create folders
+  ansible.builtin.file:
+    path: "{{ item.dst }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - dst: /etc/fail2ban/jail.d
+      mode: "0755"
+    - dst: "{{ asterisk_compose__workdir }}/ddns-auths-certbot"
+      mode: "0700"
+
+
+- name: Upload templates
+  ansible.builtin.template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    mode: "0644"
+    force: true
+  loop_control:
+    label: "{{ item.dst }}"
+  loop:
+    - src: asterisk.local.j2
+      dst: /etc/fail2ban/jail.d/asterisk.local
+
+
+- name: Populate asterisk users
+  ansible.builtin.copy:
+    content: "{{ asterisk_compose__asterisk_users | to_nice_yaml(indent=2) }}"
+    mode: "0644"
+    dest: "{{ (asterisk_compose__workdir, 'userlist.yaml') | path_join }}"
+
+
+- name: Save keys for certbot for manual DNS updates
+  ansible.builtin.copy:
+    content: "{{ item.dns_key }}"
+    dest: "{{ asterisk_compose__workdir }}/ddns-auths-certbot/_acme-challenge.{{ item.name }}"
+    mode: "0600"
+  loop_control:
+    label: "{{ item.name }}"
+  loop: "{{ asterisk_compose__certbot_domains }}"
+
+
+- name: Populate env
+  ansible.builtin.lineinfile:
+    path: "{{ (asterisk_compose__workdir, item.file) | path_join }}"
+    mode: "0640"
+    create: true
+    line: "{{ item.var }}={{ item.value }}"
+    regexp: "^\\s*{{ item.var | regex_escape }}\\s*=.*$"
+  loop_control:
+    label: "{{ item.var }}"
+  loop:
+    - file: .env
+      var: PROJECT_COMPOSE_NAME
+      value: "{{ asterisk_compose__name_systemd_service }}"
+    - file: .env
+      var: PROJECT_ALPINE_VER_TLF
+      value: "{{ asterisk_compose__alpine_ver_tlf }}"
+    - file: .env
+      var: ASTERISK_LINE_ID
+      value: "{{ asterisk_compose__asterisk_line_id }}"
+    - file: .env
+      var: ASTERISK_LINE_PASSWORD
+      value: "{{ asterisk_compose__asterisk_line_password }}"
+    - file: .env
+      var: ASTERISK_LINE_TLF
+      value: "{{ asterisk_compose__asterisk_line_tlf }}"
+    - file: .env
+      var: ASTERISK_SERVER_DNS_NAME
+      value: "{{ asterisk_compose__asterisk_server_dns_name }}"
+    - file: .env
+      var: ASTERISK_SERVER_DNS_DOMAIN
+      value: "{{ asterisk_compose__asterisk_server_dns_domain }}"
+    - file: .env
+      var: ASTERISK_SMS_PASSWORD
+      value: "{{ asterisk_compose__asterisk_sms_password }}"
+    - file: .env
+      var: ASTERISK_CLIENT_PASSWORD
+      value: "{{ asterisk_compose__asterisk_client_password }}"
+    - file: .env
+      var: ASTERISK_ALIEN_PASSWORD
+      value: "{{ asterisk_compose__asterisk_alien_password }}"
+
+
+- name: Restart systemd units
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+    enabled: true
+    state: restarted
+    name: "{{ item.unit }}"
+  loop_control:
+    label: "{{ item.unit }}"
+  loop:
+    - unit: "{{ asterisk_compose__name_systemd_service }}.service"
+    - unit: fail2ban.service
+    - unit: certbot-renew.service
+    - unit: certbot-renew.timer

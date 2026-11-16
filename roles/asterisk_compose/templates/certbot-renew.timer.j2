@@ -1,0 +1,10 @@
+[Unit]
+Description=Certbot renew cert (timer)
+
+[Timer]
+OnCalendar=*-*-* 05:30:00
+RandomizedDelaySec=1h
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

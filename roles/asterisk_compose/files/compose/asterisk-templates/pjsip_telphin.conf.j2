@@ -1,0 +1,90 @@
+[auth-telphin-trunk]
+type=auth
+auth_type=userpass
+username={{ASTERISK_LINE_ID}}
+password={{ASTERISK_LINE_PASSWORD}}
+realm=sip.telphin.com
+
+[reg-telphin](!)
+type=registration
+transport=transport-udp
+outbound_auth=auth-telphin-trunk
+retry_interval=60
+expiration=60
+client_uri=sip:{{ASTERISK_LINE_ID}}@sip.telphin.com
+max_retries = 99999
+auth_rejection_permanent = no
+forbidden_retry_interval = 300
+
+[reg-trunk-vip1](reg-telphin)
+server_uri=sip:vip1.sip.telphin.com
+contact_user=ALIAS-REGVIP1
+contact_header_params=q=0.9
+
+;; при желании использовать две и более одновременных регистраций на одной линии, чтобы они не вызывались
+;; одновременно при входящем вызове, необходимо в заголовке «Contact» пакета REGISTER передавать соответствующее
+;; значение приоритета: «q». Значение «;q=» может быть от 0.1 до 0.9 — чем больше, тем выше приоритет.
+[reg-trunk-vip2](reg-telphin)
+server_uri=sip:vip2.sip.telphin.com
+contact_user=ALIAS-REGVIP2
+contact_header_params=q=0.6
+
+[reg-trunk-vip3](reg-telphin)
+server_uri=sip:vip3.sip.telphin.com
+contact_user=ALIAS-REGVIP3
+contact_header_params=q=0.3
+
+[end-temp](!)
+type=endpoint
+context=telphin_in
+transport=transport-udp
+; media_address=1.2.3.4 ; since its the same as external_media_address
+outbound_auth=auth-telphin-trunk
+callerid={{ASTERISK_LINE_ID}}
+disallow=all
+allow=alaw
+allow=ulaw
+direct_media=no
+identify_by=ip
+sdp_owner=ClientPBX
+sdp_session=ClientPBX
+dtmf_mode=rfc4733
+
+; --- Trunk 1
+[end-telphin-trunk-vip1](end-temp)
+aors=aor-telphin-trunk-vip1
+
+[aor-telphin-trunk-vip1]
+type=aor
+contact=sip:vip1.sip.telphin.com:5060
+
+[identify-telphin-trunk-vip1]
+type=identify
+endpoint=end-telphin-trunk-vip1
+match=vip1.sip.telphin.com
+
+;----- Trunk 2
+[end-telphin-trunk-vip2](end-temp)
+aors=aor-telphin-trunk-vip2
+
+[aor-telphin-trunk-vip2]
+type=aor
+contact=sip:vip2.sip.telphin.com:5060
+
+[identify-telphin-trunk-vip2]
+type=identify
+endpoint=end-telphin-trunk-vip2
+match=vip2.sip.telphin.com
+
+;----- Trunk 3
+[end-telphin-trunk-vip3](end-temp)
+aors=aor-telphin-trunk-vip3
+
+[aor-telphin-trunk-vip3]
+type=aor
+contact=sip:vip3.sip.telphin.com:5060
+
+[identify-telphin-trunk-vip3]
+type=identify
+endpoint=end-telphin-trunk-vip3
+match=vip3.sip.telphin.com

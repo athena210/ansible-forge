@@ -1,0 +1,42 @@
+;-------------------------------- PrivateDial ----------------------------------
+; Filename: pjsip.conf
+; This file is an Asterisk configuration file, part of the PrivateDial suite.
+; It is loaded by the chan_pjsip.so module.
+;
+
+;-------------------------------- global ---------------------------------------
+
+[global]
+type = global
+user_agent = Platform PBX
+
+[transport-template](!)
+type=transport
+;external_signaling_address=1.2.3.4
+;external_media_address=1.2.3.4
+external_signaling_address={{ASTERISK_SERVER_DNS_NAME}}
+external_media_address={{ASTERISK_SERVER_DNS_NAME}}
+symmetric_transport=yes
+
+[transport-udp](transport-template)
+protocol=udp
+domain=udp.local
+bind=0.0.0.0:5060
+;bind=1.2.3.4:5060
+;symmetric_transport=no
+
+{% if PROJECT_CERT_PRESENT == 'YES' -%}
+[transport-tls](transport-template)
+protocol=tls
+domain=tls.local
+bind=0.0.0.0:5061
+;bind=1.2.3.4:5061
+method=tlsv1_2
+cert_file=/etc/letsencrypt/live/{{ASTERISK_SERVER_DNS_NAME}}/fullchain.pem
+priv_key_file=/etc/letsencrypt/live/{{ASTERISK_SERVER_DNS_NAME}}/privkey.pem
+{%- endif %}
+
+;-------------------------------- includes -------------------------------------
+
+#tryinclude pjsip_telphin.conf
+#tryinclude pjsip_users.conf

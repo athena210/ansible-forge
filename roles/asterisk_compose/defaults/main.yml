@@ -1,0 +1,4 @@
+---
+
+asterisk_compose__workdir: /var/lib/asterisk-compose
+asterisk_compose__name_systemd_service: asterisk-compose

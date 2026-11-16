@@ -1,0 +1,24 @@
+
+[telphin_out]
+exten => _X.,1,Noop("${CONTEXT}-${EXTEN}:External outgoing call FROM ${CALLERID(num)} TO ${EXTEN}")
+exten => _X.,n,Set(_SET_PAI=<sip:${ARG1}@sip.telphin.com>)
+exten => _X.,n,Set(CALLERID(name)=)
+exten => _X.,n,Set(CDR(call_from)=${CALLERID(num)})
+exten => _X.,n,Set(CALLERID(num)={{ASTERISK_LINE_ID}})
+exten => _X.,n,Dial(PJSIP/${EXTEN}@end-telphin-trunk-vip1,${DIAL_TO_EXTERNAL_TIMEOUT},${DIAL_TO_EXTERNAL_OPTIONS}b(add_header_pai^add^1))
+;exten => _X.,n,Gotoif($["${DIALSTATUS}"=="CHANUNAVAIL"]?sec_channel:hangup)
+;exten => _X.,n,Hangup()
+;exten => _X.,n(sec_channel),Dial(PJSIP/${EXTEN}@end-telphin-trunk-vip2,${DIAL_TO_EXTERNAL_TIMEOUT},${DIAL_TO_EXTERNAL_OPTIONS}b(add_header_pai^add^1))
+;exten => _X.,n,Gotoif($["${DIALSTATUS}"=="CHANUNAVAIL"]?third_channel:hangup)
+;exten => _X.,n,Hangup()
+;exten => _X.,n(third_channel),Dial(PJSIP/${EXTEN}@end-telphin-trunk-vip3,${DIAL_TO_EXTERNAL_TIMEOUT},${DIAL_TO_EXTERNAL_OPTIONS}b(add_header_pai^add^1))
+exten => _X.,n(hangup),Hangup()
+
+[add_header_pai]
+exten => add,1,Set(PJSIP_HEADER(add,P-Asserted-Identity)=${SET_PAI})
+exten => add,n,Return()
+
+;; Для входящих вызовов от Телфин
+;[telphin_in]
+; extension => {{ASTERISK_LINE_TLF}},1,....
+; .....

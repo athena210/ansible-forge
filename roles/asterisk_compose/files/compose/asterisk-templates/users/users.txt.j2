@@ -1,0 +1,8 @@
+# num; group1,group2,groupN; callerid
+# группировка пользователей по взаимоперехвату
+# 981;1;   user1
+# 982;1;   user2
+
+{% for user in userlist %}
+{{ user.num }};{{ user.grp|default('', true) }};        {{ user.name }}
+{%- endfor %}

@@ -1,0 +1,28 @@
+#!/bin/sh
+
+exit 0
+
+ARG_FROM="$1"
+ARG_TO="$2"
+
+if [ -z "$ARG_FROM" ] || [ -z "$ARG_TO" ] ; then
+    echo "Script error. Bad params: ARG_FROM=${ARG_FROM} ARG_TO=${ARG_TO}"
+    exit 1
+fi
+
+echo "Script start. Trying to send: ARG_FROM=${ARG_FROM} ARG_TO=${ARG_TO}"
+
+user=messenger
+password='{{ASTERISK_SMS_PASSWORD}}'
+from="$ARG_FROM"
+sendto="$ARG_TO"
+message="You have a missed call from $ARG_FROM"
+
+#  printf "Action: MessageSend\r\nDestination: pjsip:2220\r\nFrom: me2\r\nBody: Hello from script2\r\n\r\n"
+#  printf "Action: MessageSend\r\nDestination: pjsip:2220\r\nFrom: sip:me2@domain\r\nBody: Hello from script3\r\n\r\n"
+
+(
+  printf "Action: Login\r\nUsername: ${user}\r\nSecret: ${password}\r\n\r\n"
+  printf "Action: MessageSend\r\nDestination: pjsip:${sendto}\r\nFrom: ${from}\r\nBody: ${message}\r\n\r\n"
+  printf "Action: Logoff\r\n\r\n"
+) | nc 127.0.0.1 5038

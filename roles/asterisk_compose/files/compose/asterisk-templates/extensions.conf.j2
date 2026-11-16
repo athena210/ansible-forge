@@ -1,0 +1,223 @@
+[globals]
+; DIAL_TO_EXTERNAL_TIMEOUT=300
+; DIAL_TO_EXTERNAL_OPTIONS=
+DIAL_FROM_EXTERNAL_TIMEOUT=40
+DIAL_FROM_EXTERNAL_OPTIONS=t
+DIAL_BETWEEN_LOCALS_TIMEOUT=40
+DIAL_BETWEEN_LOCALS_OPTIONS=t
+TLF_MY_TELFIN1={{ASTERISK_LINE_TLF}}
+
+
+;; useful functions
+[fn]
+exten => GETNUM,1,Noop(${EXTEN})
+ same => n,Set(LOCAL(frm)=$[PJSIP_HEADER(read,from) =~ "<?.*sip:(.+)@"])
+ same => n,GotoIf(${frm}?gotit)
+ same => n,Set(LOCAL(frm)=$[PJSIP_HEADER(read,from) =~ "sip:(.+)@"])
+ same => n(gotit),Noop(gotit)
+ same => n,Set(CALLERID(num)=${frm})
+ same => n,Return()
+
+exten => WRONGNUM_HANGUP,1,Noop(${EXTEN})
+ ; dont log autoanswer
+ ; same => n,Set(CDR_PROP(disable)=yes)
+ same => n,Ringing()
+ same => n,Wait(${DIAL_FROM_EXTERNAL_TIMEOUT})
+ same => n,Answer()
+ same => n,Playback(silence/2)
+ same => n,Playback(number-not-answering)
+ same => n,Playback(pls-try-call-later)
+ same => n,Playback(silence/1)
+ same => n,Hangup()
+
+exten => REJECTED_HANGUP,1,Noop(${EXTEN})
+ ; dont log autoanswer
+ same => n,Set(CDR_PROP(disable)=yes)
+ same => n,Answer()
+ same => n,Playback(silence/2)
+ same => n,Playback(telephone-number)
+ same => n,Playback(vm-isonphone)
+ same => n,Playback(pls-try-call-later)
+ same => n,Playback(silence/1)
+ same => n,Hangup()
+
+exten => NOANSWER_HANGUP,1,Noop(${EXTEN})
+ ; dont log autoanswer
+ same => n,Set(CDR_PROP(disable)=yes)
+ same => n,Answer()
+ same => n,Playback(silence/2)
+ same => n,Playback(number-not-answering)
+ same => n,Playback(pls-try-call-later)
+ same => n,Playback(silence/1)
+ same => n,Hangup()
+
+exten => UNAVAILABLE_HANGUP,1,Noop(${EXTEN})
+ ; dont log autoanswer
+ ; same => n,Set(CDR_PROP(disable)=yes)
+ same => n,Answer()
+ same => n,Playback(silence/2)
+ same => n,Playback(telephone-number)
+ same => n,Playback(vm-isunavail)
+ ; same => n,Playback(cannot-complete-as-dialed)
+ same => n,Playback(pls-try-call-later)
+ same => n,Playback(silence/1)
+ same => n,Hangup()
+
+exten => UNAVAILABLE_SMSINFORM_HANGUP,1,Noop(${EXTEN})
+ ; ARG1: missed call from
+ ; ARG2: missed call to
+ ; dont log autoanswer
+ ; same => n,Set(CDR_PROP(disable)=yes)
+ same => n,GotoIf($[ ${LEN(${ARG1})} > 0 & ${LEN(${ARG2})} > 0 ]?:endmsg)
+ same => n,Set(MESSAGE(body)=Missed call")
+ same => n,Set(MESSAGE(from)=${ARG1})
+; same => n,Gosub(messages,${ARG2},1)
+ same => n,Gosub(send-message,MSG,1(${ARG2}))
+ same => n(endmsg),Noop(endmsg)
+ same => n,Answer()
+ same => n,Playback(silence/2)
+ same => n,Playback(telephone-number)
+ same => n,Playback(vm-isunavail)
+ same => n,Playback(pls-try-call-later)
+ same => n,Playback(silence/1)
+ same => n,Hangup()
+
+
+[phone-hints]
+exten => h,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Hangup()
+
+ ; exten => 2919,hint,PJSIP/${EXTEN}@udp.local&PJSIP/${EXTEN}@tls.local
+#exec /etc/asterisk/users/users.sh hints
+
+
+[messages]
+exten => h,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Hangup()
+
+exten => _XX.,1,Noop(${CONTEXT}-${EXTEN}: Message from ${MESSAGE(from)} to ${EXTEN})
+ same => n,Gosub(send-message,MSG,1(${EXTEN}))
+
+
+[send-message]
+exten => MSG,1,Noop(${CONTEXT}-${EXTEN})
+ ; ARG1: message to
+ same => n,Set(LOCAL(MSG_TO)=${ARG1})
+ same => n,MessageSend(pjsip:${MSG_TO},${MESSAGE(from)})
+
+ ; same => n,Set(MESSAGE(body)=Hello6)
+ ; same => n,MessageSend(pjsip:${MSG_TO},${MESSAGE(from)})
+
+ ; same => n,Set(TARGET_CONTACTS=${PJSIP_DIAL_CONTACTS(${MSG_TO})})
+ ; same => n,GotoIf($[${ISNULL(${TARGET_CONTACTS})}]?save_offline:send_online)
+ ;
+ ; same => n(send_online),Noop(send_online)
+ ; ?? same => n,MessageSend(pjsip:${MSG_TO},,sip:${MSG_TO})
+ ; same => n,Hangup()
+ ;
+ ; same => n(save_offline),NoOp(save_offline)
+ ; same => n,System(/etc/asterisk/msg_send_offline.sh "${MESSAGE(from)}" "${MSG_TO}" "${BASE64_ENCODE(${MESSAGE(body)})}")
+  same => n,Return()
+
+
+[internal-call]
+exten => INTERNAL,1,Noop(${CONTEXT}-${EXTEN})
+ ; ARG1: dial to
+ ; ARG2: dial timeout
+ ; ARG3: dial options
+ same => n,Set(LOCAL(DIAL_NUM)=${ARG1})
+ same => n,Set(LOCAL(DIAL_TIMEOUT)=${ARG2})
+ same => n,Set(LOCAL(DIAL_OPTIONS)=${ARG3})
+ same => n,Noop(${CONTEXT}-${EXTEN}: FROM ${CALLERID(num)} TO ${DIAL_NUM} Timeout=${DIAL_TIMEOUT} Options=${DIAL_OPTIONS})
+ 
+ same => n,Set(state=${EXTENSION_STATE(${DIAL_NUM}@phone-hints)})
+ same => n,Noop(${CONTEXT}-${EXTEN}: Abonent ${DIAL_NUM} has state ${state})
+
+ ; case1
+ ; abonent is invalid. Not exist?
+ same => n,Gotoif($[ "${state}" = "INVALID" ]?case1_INVALID)
+ ; abonent is unavailable
+ same => n,Gotoif($[ "${state}" = "UNAVAILABLE" ]?case1_UNAVAILABLE)
+ ; default
+ same => n,Goto(case1_default)
+
+ same => n(case1_INVALID),Noop(${CONTEXT}-${EXTEN}: Invalid abonent. Wrong number?)
+ ; TODO: if LOCAL_TO_LOCAL then short WRONGNUM
+ same => n,Gosub(fn,WRONGNUM_HANGUP,1)
+
+ same => n(case1_UNAVAILABLE),Noop(${CONTEXT}-${EXTEN}: Abonent is unavailable, notify by SMS from ${CALLERID(num)} to ${DIAL_NUM})
+ same => n,Gosub(fn,UNAVAILABLE_SMSINFORM_HANGUP,1(${CALLERID(num)},${DIAL_NUM}))
+ ; same => n,Gosub(fn,UNAVAILABLE_HANGUP,1)
+
+ same => n(case1_default),Noop(case1_default)
+ same => n(case1_end),Noop(case1_end)
+
+ ; __dial__
+ same => n,Dial(${PJSIP_DIAL_CONTACTS(${DIAL_NUM})},${DIAL_TIMEOUT},${DIAL_OPTIONS})
+ same => n,Noop(${CONTEXT}-${EXTEN}: Dial result is: ${DIALSTATUS} HANGUPCAUSE=${HANGUPCAUSE})
+
+ ; Treat some buggy responses:
+
+ ; 1) Code 603 (21) means decline, not CHANUNAVAIL. Make it busy. (Linphone)
+ same => n,GotoIf($[ "${DIALSTATUS}" = "CHANUNAVAIL" & "${HANGUPCAUSE}" = "21" ]?case2_resp1)
+ ; 2) Telphin calls again if nobody answer 1st time. Make them stop.
+ same => n,GotoIf($[ "${DIALSTATUS}" = "NOANSWER" & "${HANGUPCAUSE}" = "0" ]?case2_resp2)
+ ; 3) Linphone answers busy instead of noanswer, need to remap.
+ same => n,GotoIf($[ "${DIALSTATUS}" = "BUSY" & "${HANGUPCAUSE}" = "17" ]?case2_resp3)
+ ; default
+ same => n,Goto(case2_default)
+
+ same => n(case2_resp1),Noop(${CONTEXT}-${EXTEN}: The call was rejected)
+ same => n,Gosub(fn,REJECTED_HANGUP,1)
+
+ same => n(case2_resp2),Noop(${CONTEXT}-${EXTEN}: Nobody can pick up the phone(2))
+ same => n,Gosub(fn,NOANSWER_HANGUP,1)
+
+ same => n(case2_resp3),Noop(${CONTEXT}-${EXTEN}: Nobody can pick up the phone(3))
+ same => n,Gosub(fn,NOANSWER_HANGUP,1)
+
+ same => n(case2_default),Noop(case2_default)
+ same => n(case2_end),Noop(case2_end)
+ same => n,Return()
+
+
+[route-local]
+exten => h,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Hangup()
+
+exten => _.!,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Gosub(internal-call,INTERNAL,1(${EXTEN},${DIAL_BETWEEN_LOCALS_TIMEOUT},${DIAL_BETWEEN_LOCALS_OPTIONS}))
+
+
+[route-outside-main]
+exten => h,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Hangup()
+
+; test outgoing redirect
+; exten => +79151234567,1,Gosub(telphin_out,${EXTEN:1},1(${TLF_USER1}))
+; exten => _9XXXXX.,1,Gosub(telphin_out,${EXTEN:1},1(${TLF_MY_TELFIN1}))
+exten => _+XXXXX.,1,Gosub(telphin_out,${EXTEN:1},1(${TLF_MY_TELFIN1}))
+exten => _XXXXX.,1,Gosub(telphin_out,${EXTEN},1(${TLF_MY_TELFIN1}))
+
+
+[telphin_in]
+exten => h,1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Hangup()
+
+; me
+exten => {{ASTERISK_LINE_TLF}},1,Noop(${CONTEXT}-${EXTEN})
+ same => n,Gosub(fn,GETNUM,1)
+ same => n,Noop(${CONTEXT}-${EXTEN}: Incoming external call FROM ${CALLERID(num)} TO ${EXTEN})
+ same => n,Gosub(internal-call,INTERNAL,1(2220,${DIAL_FROM_EXTERNAL_TIMEOUT},${DIAL_FROM_EXTERNAL_OPTIONS}))
+
+
+[dial-plan-main]
+include => route-outside-main
+include => route-local
+
+
+[dial-plan-aliens]
+include => route-local
+
+
+#tryinclude extensions_telphin.conf

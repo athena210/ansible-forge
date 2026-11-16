@@ -1,0 +1,11 @@
+[Unit]
+Description=Certbot renew cert (service)
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory={{ asterisk_compose__workdir }}
+ExecStart=/usr/bin/docker compose run --rm --service-ports --build --name certbot_renew cert_renew
+
+[Install]
+WantedBy=multi-user.target

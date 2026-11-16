@@ -1,0 +1,4 @@
+---
+
+asterisk_compose__os_supported:
+  - debian
