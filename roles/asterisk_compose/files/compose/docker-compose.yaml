@@ -11,7 +11,7 @@ services:
       context: ./build-asterisk
     pull_policy: never
     image: localhost/asterisk:latest
-    # dont change container name, it is being used in fail2ban filter
+    # dont change container name
     container_name: asterisk
     restart: unless-stopped
     network_mode: host
@@ -41,8 +41,8 @@ services:
     pull_policy: never
     image: localhost/certbot:latest
     # container_name: certbot_issue
-    ports:
-      - 80:80
+    # ports:
+    #   - 80:80
     volumes:
       - letsencrypt-db:/etc/letsencrypt
       - ./ddns-auths-certbot:/etc/ddns-auths-certbot:ro
@@ -64,8 +64,8 @@ services:
     image: localhost/certbot:latest
     # container_name: certbot_renew
     restart: no
-    ports:
-      - 80:80
+    # ports:
+    #   - 80:80
     volumes:
       - letsencrypt-db:/etc/letsencrypt
       - ./ddns-auths-certbot:/etc/ddns-auths-certbot:ro
@@ -78,3 +78,41 @@ services:
           certbot renew --agree-tos -n
           --deploy-hook /certbot-renew-successful.sh
     profiles: [manual-cert-renew]
+
+
+  backup:
+    image: alpine:${PROJECT_ALPINE_VER_TLF:-latest}
+    restart: no
+    volumes:
+      - ./backup:/backup
+      - letsencrypt-db:/tmp/letsencrypt-db:ro
+      - asterisk-callog:/tmp/asterisk-callog:ro
+      - asterisk-history:/tmp/asterisk-history:ro
+      - asterisk-data:/tmp/asterisk-data:ro
+    command: |
+      sh -c '
+        tar czf /backup/t.tgz -C /tmp/letsencrypt-db . && mv /backup/t.tgz /backup/letsencrypt-db.tgz &&\
+        tar czf /backup/t.tgz -C /tmp/asterisk-callog . && mv /backup/t.tgz /backup/asterisk-callog.tgz &&\
+        tar czf /backup/t.tgz -C /tmp/asterisk-history . && mv /backup/t.tgz /backup/asterisk-history.tgz &&\
+        tar czf /backup/t.tgz -C /tmp/asterisk-data . && mv /backup/t.tgz /backup/asterisk-data.tgz
+      '
+    profiles: [manual-backup]
+
+
+  restore:
+    image: alpine:${PROJECT_ALPINE_VER_TLF:-latest}
+    restart: no
+    volumes:
+      - ./backup:/backup:ro
+      - letsencrypt-db:/tmp/letsencrypt-db
+      - asterisk-callog:/tmp/asterisk-callog
+      - asterisk-history:/tmp/asterisk-history
+      - asterisk-data:/tmp/asterisk-data
+    command: |
+      sh -c '
+        if [ -f /backup/letsencrypt-db.tgz ] && [ -d /tmp/letsencrypt-db ] ; then find /tmp/letsencrypt-db -mindepth 1 -delete ; tar xzf /backup/letsencrypt-db.tgz -C /tmp/letsencrypt-db ; else echo "Failed" ; exit 1 ; fi ;\
+        if [ -f /backup/asterisk-callog.tgz ] && [ -d /tmp/asterisk-callog ] ; then find /tmp/asterisk-callog -mindepth 1 -delete ; tar xzf /backup/asterisk-callog.tgz -C /tmp/asterisk-callog ; else echo "Failed" ; exit 1 ; fi ;\
+        if [ -f /backup/asterisk-history.tgz ] && [ -d /tmp/asterisk-history ] ; then find /tmp/asterisk-history -mindepth 1 -delete ; tar xzf /backup/asterisk-history.tgz -C /tmp/asterisk-history ; else echo "Failed" ; exit 1 ; fi ;\
+        if [ -f /backup/asterisk-data.tgz ] && [ -d /tmp/asterisk-data ] ; then find /tmp/asterisk-data -mindepth 1 -delete ; tar xzf /backup/asterisk-data.tgz -C /tmp/asterisk-data ; else echo "Failed" ; exit 1 ; fi
+      '
+    profiles: [manual-restore]

@@ -27,10 +27,16 @@
     - name: SystemMaxFileSize
       value: "{{ logging__file_size }}"
 
+# - name: Delete journald logs
+#   ansible.builtin.file:
+#     path: "{{ item }}"
+#     state: absent
+#   loop: [/var/log/journal, /run/log/journal]
+
 - name: Delete journald logs
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
+  ansible.builtin.command:
+    cmd: find "{{ item }}" -mindepth 1 -delete
+  changed_when: true
   loop: [/var/log/journal, /run/log/journal]
 
 - name: Restart journald

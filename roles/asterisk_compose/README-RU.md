@@ -8,10 +8,9 @@ TODO: Нужно написать сервис для работы с очере
 
 В роли используется asterisk из репозитория alpine с дополнительно загруженными голосовыми сигналами на русском из официальных коллекций asterisk, а также предустановлен jinjanator для формирования конфигурации. Для запуска используется systemd сервис заданный переменной `asterisk_compose__name_systemd_service`. Для гибкости конфигурации вся папка /etc/asterisk формируется при каждом старте контейнера скриптом entrypoint. Если при запуске будет найден сертификат сервера, то для пользователей будут доступны подключения по SIP и SIPS одновременно, в противном случае поддержка SIPS не включится. В этом примере все пользователи имеют одинаковый пароль для упрощения. Список пользователей проходит двойное преобразование - из переменных роли в файл `userlist.yaml` в каталоке compose, затем при старте контейнера в `/etc/asterisk/users/users.txt`, откуда парсится скриптом в разные места конфигурации asterisk в нужных форматах.
 
-Для работы с сертификатами letsencrypt используется образ на базе официального образа certbot, куда дополнительно устанавливается docker-cli чтобы перезагружать контейнер asterisk если сертификат обновится. Подтверждение владения доменными именами выполняется через certbot хуки, которые обновляют `_acme-challenge` записи типа TXT по DDNS. DNS хостер в этом примере Hurricane Electric, работа с ним жестко прописана в хуках. Для формирования красивого SIP адреса типа `123@example.com` нужно серверу asterisk выдать сертификат на два SAN - `tlf.example.com` и `example.com`. Подтверждение `example.com` с этого сервера может быть затруднено если сертификат на этот домен уже используется, например на web сервере, поэтому выбран такой manual метод подтверждения через хуки. На хост устанавливается systemd таймер и сервис, который раз в день выполняют запуск контейнера, обновляющего сертификат. При успешном обновлении из контейнера поступает команда на перезапуск контейнера asterisk. Первичный выпуск сертификата следует выполнить вручную командой
-```shell
-docker compose run --rm --service-ports --build --name certbot_issue cert_issue
-```
+Для работы с сертификатами letsencrypt используется образ на базе официального образа certbot, куда дополнительно устанавливается docker-cli чтобы перезагружать контейнер asterisk если сертификат обновится. Подтверждение владения доменными именами выполняется через certbot хуки, которые обновляют `_acme-challenge` записи типа TXT по DDNS. DNS хостер в этом примере Hurricane Electric, работа с ним жестко прописана в хуках. Для формирования красивого SIP адреса типа `123@example.com` нужно серверу asterisk выдать сертификат на два SAN - `tlf.example.com` и `example.com`. Подтверждение `example.com` с этого сервера может быть затруднено если сертификат на этот домен уже используется, например на web сервере, поэтому выбран такой manual метод подтверждения через хуки. На хост устанавливается systemd таймер и сервис, который раз в день выполняют запуск контейнера, обновляющего сертификат. При успешном обновлении из контейнера поступает команда на перезапуск контейнера asterisk. Первичный выпуск сертификата следует выполнить вручную, затем рестартовать asterisk compose.
+
+Используемые в compose тома можно архивировать для переноса или резервного копирования, а также восстановить обратно. Архивы сохраняются в каталоге backup в корне проекта compose. Перед началом следует остановить asterisk.
 
 Памятка по полезным командам
 ```shell
@@ -19,9 +18,21 @@ docker compose run --rm --service-ports --build --name certbot_issue cert_issue
 docker compose run --rm --service-ports --build --name certbot_issue cert_issue
 # перевыпуск сертификата
 docker compose run --rm --service-ports --build --name certbot_renew cert_renew
+
+# оставновить asterisk compose
+systemctl stop asterisk-compose
+# сделать бэкапы томов
+docker compose run --rm --service-ports --build --name asterisk_backup backup
+# восстановить тома из бэкапов
+docker compose run --rm --service-ports --build --name asterisk_restore restore
+# запустить asterisk compose
+systemctl start asterisk-compose
+
 # почитать логи
-journalctl CONTAINER_NAME=certbot_renew
 journalctl CONTAINER_NAME=asterisk
+journalctl CONTAINER_NAME=certbot_renew
+journalctl CONTAINER_NAME=asterisk_backup
+journalctl CONTAINER_NAME=asterisk_restore
 
 ```
 
